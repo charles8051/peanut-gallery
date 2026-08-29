@@ -16,6 +16,17 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  # Exercise the whole path - OIDC exchange, policy match, environment, packing -
+  # without publishing. A trusted-publishing policy has four fields that must line
+  # up (owner, repo, workflow FILENAME, environment) and a wrong one fails at the
+  # login step, so the first exercise of a new policy should not have to be an
+  # irreversible publish: nuget.org does not allow deleting a published version.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Verify the OIDC exchange and packing without pushing to nuget.org'
+        type: boolean
+        default: true
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -102,9 +113,22 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
+      # On a tag push `inputs.dry_run` is null, so this runs. Only a manual dispatch
+      # can skip it, and skipping is the DEFAULT for a dispatch - the safe direction
+      # for the button somebody clicks to find out whether the policy works.
       - name: Push to nuget.org
+        if: ${{ !inputs.dry_run }}
         run: >
           dotnet nuget push "packages/*.nupkg"
           --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
+
+      - name: Dry run complete
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "Dry run. The OIDC exchange with nuget.org succeeded, which means the"
+          echo "trusted-publishing policy matched on owner, repository, workflow"
+          echo "filename and environment. The packages below were built. Nothing was"
+          echo "pushed. Re-run with dry_run unchecked, or push a v*.*.* tag, to publish."
+          ls -lh packages/
