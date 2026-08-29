@@ -23,6 +23,11 @@ permissions:
   pull-requests: write
 jobs:
   review:
+    # Comments land on issues as well as PRs, and the panel answers its own
+    # comments. Skip both rather than starting a job that has nothing to do.
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.comment.user.type != 'Bot' && github.event.issue.pull_request)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
