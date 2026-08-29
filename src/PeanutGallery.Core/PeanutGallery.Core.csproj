@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PeanutGallery.Core</RootNamespace>
+    <AssemblyName>PeanutGallery.Core</AssemblyName>
+
+    <!-- The foundation is pure and reflection-free, so it is Native-AOT clean.
+         This turns on the trim/AOT analyzers so any future addition that would
+         break an AOT shell (CLI, server, or the Avalonia desktop) is flagged
+         here, at the source, rather than at publish time. -->
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>

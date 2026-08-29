@@ -1,0 +1,14 @@
+# Keep the build context small + reproducible.
+**/bin
+**/obj
+.git
+.github
+tests
+docs
+examples
+artifacts
+.repowise
+.roam
+TestResults
+*.user
+peanut.local.json

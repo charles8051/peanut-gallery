@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peanut Gallery — Persona editor</title>
+<style>
+  :root{
+    --bg:#0f0f11; --surface:#17171a; --surface-2:#1e1e22; --raised:#242429;
+    --border:#2a2a30; --border-strong:#3a3a42;
+    --text:#e8e8ec; --text-2:#a2a2ab; --text-3:#6c6c76;
+    --accent:#e0a24a; --accent-ink:#3a2a10; --blue:#5b9bd8; --green:#57b98a;
+    --radius:8px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;padding:30px}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45)}
+  svg{stroke:currentColor;fill:none;stroke-width:1.6}
+
+  .modal{position:relative;width:560px;max-width:100%;background:var(--surface);border:1px solid var(--border-strong);border-radius:14px;overflow:hidden}
+  .mh{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--border)}
+  .mh h1{font-size:16px;font-weight:500;margin:0}
+  .mh .x{color:var(--text-3);cursor:pointer;width:18px;height:18px}
+  .import{display:flex;align-items:center;gap:9px;margin:0;padding:10px 18px;background:color-mix(in srgb,var(--blue) 9%,transparent);border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text-2)}
+  .import svg{width:15px;height:15px;stroke:var(--blue);flex:none}
+  .import code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--text-3)}
+
+  .form{padding:16px 18px;display:flex;flex-direction:column;gap:15px;max-height:66vh;overflow:auto}
+  .field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:6px}
+  .field .hint{font-size:11.5px;color:var(--text-3);margin-top:5px}
+  input[type=text],select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;padding:8px 10px;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--border-strong)}
+  textarea{resize:vertical;min-height:96px;line-height:1.55}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .seg button{background:transparent;border:0;color:var(--text-2);font-size:12.5px;padding:7px 14px;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--border)}
+  .seg button.on{background:var(--surface-2);color:var(--text)}
+  .temprow{display:flex;align-items:center;gap:12px}
+  .temprow input[type=range]{flex:1;accent-color:var(--accent)}
+  .temprow .val{font-size:13px;min-width:26px;text-align:right}
+
+  .mf{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid var(--border)}
+  .scopenote{font-size:11.5px;color:var(--text-3)}
+  .fbtns{display:flex;gap:9px}
+  .btn{border:1px solid var(--border-strong);background:transparent;color:var(--text);padding:8px 15px;border-radius:var(--radius);font-size:13px;cursor:pointer}
+  .btn:hover{background:var(--surface-2)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<h2 class="sr-only">Peanut Gallery persona editor, shown confirming an import from a Claude Code subagent file.</h2>
+<div class="scrim"></div>
+
+<div class="modal">
+  <div class="mh"><h1>Edit persona</h1><svg class="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+
+  <div class="import"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Imported from <code>.claude/agents/security-auditor.md</code> — review the mapping and save.</div>
+
+  <div class="form">
+    <div class="field">
+      <label>Name</label>
+      <input type="text" value="Security Auditor">
+    </div>
+
+    <div class="two">
+      <div class="field">
+        <label>Lens</label>
+        <input type="text" value="security">
+        <div class="hint">Free-form label, advisory only.</div>
+      </div>
+      <div class="field">
+        <label>Tier</label>
+        <div class="seg"><button class="on">Diff</button><button>Agent</button></div>
+        <div class="hint">Agent tier gets read-only repo tools.</div>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="field">
+        <label>Provider</label>
+        <select><option>openrouter</option><option>fireworks</option></select>
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <select><option>anthropic/claude-sonnet-4.5</option><option>deepseek/deepseek-chat</option><option>minimax/minimax-m3</option></select>
+        <div class="hint">Mapped from the subagent's <code>model: sonnet</code>.</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Temperature</label>
+      <div class="temprow"><input type="range" min="0" max="1" step="0.1" value="0"><span class="val">0.0</span></div>
+    </div>
+
+    <div class="field">
+      <label>System prompt</label>
+      <textarea>You are a security auditor. Flag ONLY: injection, authz gaps, secret handling, unsafe deserialization. Cite file:line for every finding. High precision — if you cannot confirm it, do not report it. Ignore style, design, and performance.</textarea>
+      <div class="hint">Seeded from the subagent's markdown body.</div>
+    </div>
+
+    <div class="field">
+      <label>Save to</label>
+      <div class="seg"><button class="on">My library</button><button>acme/payments-api</button></div>
+    </div>
+  </div>
+
+  <div class="mf">
+    <div class="scopenote">Saving to a repo opens a pull request you review and merge.</div>
+    <div class="fbtns"><button class="btn">Cancel</button><button class="btn primary">Save persona</button></div>
+  </div>
+</div>
+</body>
+</html>

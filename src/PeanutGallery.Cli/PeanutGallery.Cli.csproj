@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PeanutGallery.Cli</RootNamespace>
+    <AssemblyName>peanut-gallery</AssemblyName>
+
+    <!-- Packaged as a dotnet tool. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>peanut-gallery</ToolCommandName>
+
+    <!-- MinVer: derive the package version from `v*.*.*` git tags. -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerMinimumMajorMinor>0.0</MinVerMinimumMajorMinor>
+    <MinVerDefaultPreReleaseIdentifiers>dev</MinVerDefaultPreReleaseIdentifiers>
+
+    <PackageId>PeanutGallery</PackageId>
+    <Authors>Charles Lee</Authors>
+    <Description>Peanut Gallery - a persona-driven, multi-model code-review tool. Pure core, multiple shells.</Description>
+    <PackageTags>code-review;ai;llm;openrouter;fireworks;dotnet-tool;avalonia;aot</PackageTags>
+    <RepositoryUrl>https://github.com/charles8051/peanut-gallery</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/charles8051/peanut-gallery</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+
+    <!-- SourceLink + reproducible build -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MinVer" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PeanutGallery.Core\PeanutGallery.Core.csproj" />
+    <ProjectReference Include="..\PeanutGallery.Engine\PeanutGallery.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+    <None Include="../../NOTICE" Pack="true" PackagePath="\" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="\" />
+    <None Include="../../icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

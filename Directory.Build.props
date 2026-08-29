@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- The core and every shell are designed to be Native-AOT publishable.
+         Invariant globalization keeps the AOT payload small
+         and avoids ICU; it is harmless for a code-review tool. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Build identity. CI passes a CalVer + short SHA via
+         -p:InformationalVersion=YYYY.MM.DD-<sha>; the packaged tool derives its
+         NuGet version from `v*.*.*` git tags via MinVer (see PeanutGallery.Cli). -->
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">0.0.0-dev</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <NoWarn>NU1608</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <HotReloadAutoRestart>true</HotReloadAutoRestart>
+  </PropertyGroup>
+</Project>

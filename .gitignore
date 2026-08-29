@@ -1,0 +1,47 @@
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+publish/
+
+# Test run output (trx logger writes here; see the CI Test steps)
+TestResults/
+
+# Agent and AI tooling. All of it is local configuration for whatever assistant a
+# contributor happens to use, and none of it describes this project. Ignored as a
+# category rather than file by file, so a new tool's dotfile does not land in a
+# commit before anyone notices it. CONTRIBUTING.md carries the same guidance for
+# people, which is the version a public contributor should be reading.
+.claude/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+copilot-instructions.md
+.cursor/
+.cursorrules
+.aider*
+.gsd/
+.mcp.json
+
+# Repowise codebase index. Machine-local, regenerable, and large.
+.repowise/
+
+# Local pack output from `dotnet pack -o artifacts/packages`.
+# Real release builds publish via the publish.yml workflow on a v*.*.* tag.
+artifacts/
+
+
+# Local deploy/sync state written by external tooling. Never in git: it holds
+# machine-local paths and run metadata.
+.roam/
+
+# Local operator config: real API keys / repo paths live here, never in git.
+peanut.local.json

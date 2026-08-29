@@ -1,0 +1,68 @@
+{
+  "_comment": "The panel a repo gets when it commits no config of its own. seedAndAuto, not auto: the seed below always runs, so an orchestrator that fails or plans nothing still leaves two reviewers on the change. Under plain 'auto' with no personas to fall back to, a failed plan resolves to an empty panel and ReviewRunner returns without posting anything - a green check and a silent non-review, which is the one outcome a default must not have. The orchestrator adds up to 2 diff-specific reviewers on top (PanelFence.MaxPersonas is 4), once, pinned at PR-open. comment: panel - one deduplicated, lens-attributed comment rather than one per persona. conversation: reconcile behind a mention gate - two humans talking in the PR thread cost nothing, and a question addressed to the panel costs one call rather than four.",
+  "providers": [
+    {
+      "name": "openrouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY"
+    }
+  ],
+  "personas": [
+    {
+      "id": "architect",
+      "name": "The Architect",
+      "lens": "architecture",
+      "tier": "diff",
+      "model": {
+        "provider": "openrouter",
+        "modelId": "openai/gpt-5.6-luna"
+      },
+      "temperature": 1.0,
+      "systemPrompt": "You review for architectural coherence: layering violations, leaky abstractions, and tangled responsibilities. Cite file:line. Do not nitpick style. An empty findings list is fine."
+    },
+    {
+      "id": "bug-hunter",
+      "name": "The Bug Hunter",
+      "lens": "bug-hunter",
+      "tier": "diff",
+      "model": {
+        "provider": "openrouter",
+        "modelId": "openai/gpt-5.6-luna"
+      },
+      "temperature": 1.0,
+      "systemPrompt": "Find correctness bugs only: off-by-one, null/lifetime, races, error paths, boundary conditions. High precision; if unsure, say so. An empty findings list is fine."
+    }
+  ],
+  "repos": [
+    {
+      "name": "repo",
+      "path": "."
+    }
+  ],
+  "assignments": [
+    {
+      "personaId": "architect",
+      "repoName": "repo"
+    },
+    {
+      "personaId": "bug-hunter",
+      "repoName": "repo"
+    }
+  ],
+  "panel": "seedAndAuto",
+  "orchestrator": {
+    "provider": "openrouter",
+    "modelId": "openai/gpt-5.6-luna"
+  },
+  "personaModel": {
+    "provider": "openrouter",
+    "modelId": "openai/gpt-5.6-luna"
+  },
+  "comment": "panel",
+  "conversation": {
+    "mode": "reconcile",
+    "mentions": [
+      "@peanut-gallery"
+    ]
+  }
+}

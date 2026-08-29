@@ -1,0 +1,58 @@
+name: 'Peanut Gallery'
+description: 'Persona-driven, multi-model pull request review with stateful per-persona sessions.'
+author: 'Charles Lee'
+branding:
+  icon: 'eye'
+  color: 'orange'
+
+inputs:
+  pr-number:
+    description: 'Pull request number to review.'
+    required: false
+    default: ${{ github.event.pull_request.number }}
+  config:
+    description: 'Path to a peanut config file in the repo. Empty = use the bundled default panel.'
+    required: false
+    default: ''
+  github-token:
+    description: 'Token used to read the PR diff and post comments (needs pull-requests: write).'
+    required: false
+    default: ${{ github.token }}
+  openrouter-api-key:
+    description: 'OpenRouter API key. Maps to OPENROUTER_API_KEY.'
+    required: false
+    default: ''
+  fireworks-api-key:
+    description: 'Fireworks API key. Maps to FIREWORKS_API_KEY.'
+    required: false
+    default: ''
+  provider-keys:
+    description: |
+      Generic provider API keys, one KEY=VALUE per line, exported into the environment
+      before the review runs. Satisfies any provider's apiKeyEnv without a dedicated
+      input (e.g. a line "NVIDIA_API_KEY=..." fed from a repo secret; see the README).
+      Blank lines and #comments are ignored. openrouter-api-key / fireworks-api-key still work.
+    required: false
+    default: ''
+
+runs:
+  using: 'docker'
+  # Prebuilt image pushed by .github/workflows/image.yml on every main merge (moving
+  # :main tag). Consumers (and this repo's own dogfood) docker pull it instead of
+  # building the Dockerfile per job. A stock ubuntu-latest runner can pull it as long as
+  # the GHCR package is public; while it is private, consumers must supply a runner that
+  # is already docker-login'd to GHCR.
+  #
+  # :main is a MOVING tag - pinning `uses:` to a release tag pins this file, not the
+  # image it names. To pin the bytes as well, replace the tag below with a digest
+  # (`@sha256:...`), the way .github/workflows/metrics-report.yml pins its own pull.
+  # To rebuild from source instead, revert to 'Dockerfile'.
+  image: 'docker://ghcr.io/charles8051/peanut-gallery:main'
+  env:
+    GITHUB_TOKEN: ${{ inputs.github-token }}
+    OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
+    FIREWORKS_API_KEY: ${{ inputs.fireworks-api-key }}
+    # Map kebab-case inputs to clean env names (auto INPUT_* keep dashes, which aren't valid shell vars).
+    PG_PR_NUMBER: ${{ inputs.pr-number }}
+    PG_PROVIDER_KEYS: ${{ inputs.provider-keys }}
+    PG_CONFIG: ${{ inputs.config }}

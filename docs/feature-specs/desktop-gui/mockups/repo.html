@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peanut Gallery — Repository</title>
+<style>
+  :root{
+    --bg:#0f0f11; --surface:#17171a; --surface-2:#1e1e22; --raised:#242429;
+    --border:#2a2a30; --border-strong:#3a3a42;
+    --text:#e8e8ec; --text-2:#a2a2ab; --text-3:#6c6c76;
+    --accent:#e0a24a; --accent-ink:#3a2a10;
+    --purple:#8f83d8; --coral:#d97e5c; --amber:#e0a83c;
+    --green:#57b98a; --red:#e26a63; --blue:#5b9bd8;
+    --radius:8px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .app{display:grid;grid-template-columns:288px 1fr;height:100vh}
+  svg{stroke:currentColor;fill:none;stroke-width:1.6}
+
+  /* left: repo list */
+  .side{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;min-width:0}
+  .brand{display:flex;align-items:center;gap:9px;padding:15px 15px 12px}
+  .brand .mark{width:24px;height:24px;border-radius:7px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink)}
+  .brand b{font-weight:500;font-size:14.5px}
+  .search{margin:2px 12px 10px;position:relative}
+  .search svg{position:absolute;left:10px;top:9px;width:15px;height:15px;stroke:var(--text-3)}
+  .search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px 7px 30px;color:var(--text);font-size:13px}
+  .search input::placeholder{color:var(--text-3)}
+  .lhead{font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--text-3);padding:6px 16px 4px}
+  .repos{overflow:auto;flex:1;padding:0 8px}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:var(--radius);cursor:pointer;color:var(--text-2)}
+  .row:hover{background:var(--surface-2)}
+  .row.on{background:var(--surface-2);color:var(--text)}
+  .row .ri{width:16px;height:16px;stroke:var(--text-3);flex:none}
+  .row.on .ri{stroke:var(--accent)}
+  .row .rmeta{min-width:0;flex:1}
+  .row .rname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row.on .rname{font-weight:500}
+  .row .rsub{font-size:11px;color:var(--text-3)}
+  .row .badge{font-size:11px;color:var(--text-3);background:var(--raised);border-radius:11px;padding:1px 7px;flex:none}
+  .row .pip{width:6px;height:6px;border-radius:50%;flex:none}
+  .pip.warn{background:var(--amber)} .pip.run{background:var(--blue)}
+  .side-nav{border-top:1px solid var(--border);padding:8px;display:flex;gap:4px}
+  .side-nav a{flex:1;text-align:center;color:var(--text-2);text-decoration:none;font-size:12px;padding:7px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;gap:6px}
+  .side-nav a svg{width:15px;height:15px}
+  .side-nav a:hover{background:var(--surface-2);color:var(--text)}
+
+  /* main */
+  .main{overflow:auto}
+  .head{padding:20px 26px 18px;border-bottom:1px solid var(--border)}
+  .head .crumbs{font-size:12.5px;color:var(--text-3)}
+  .head .titlerow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:5px}
+  .head h1{font-size:19px;font-weight:500;margin:0;display:flex;align-items:center;gap:9px}
+  .head h1 svg{width:19px;height:19px;stroke:var(--text-3)}
+  .head .stat{font-size:12.5px;color:var(--text-3);margin-top:3px}
+  .btn{border:1px solid var(--border-strong);background:transparent;color:var(--text);padding:8px 13px;border-radius:var(--radius);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+  .btn:hover{background:var(--surface-2)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
+  .btn svg{width:15px;height:15px}
+
+  .body{padding:20px 26px 40px;max-width:960px}
+
+  /* subscriptions */
+  .sub{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:24px}
+  .sub .sh{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .sub .sh .l{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-2)}
+  .sub .sh .l svg{width:16px;height:16px;stroke:var(--green)}
+  .toggle{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)}
+  .sw{width:34px;height:19px;border-radius:11px;background:var(--green);position:relative;flex:none}
+  .sw::after{content:"";position:absolute;top:2px;left:17px;width:15px;height:15px;border-radius:50%;background:#fff}
+  .subchips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  .pchip{display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--pc);border-radius:var(--radius);padding:5px 10px;font-size:12.5px}
+  .pchip .x{color:var(--text-3);cursor:pointer;margin-left:2px}
+  .pchip .x:hover{color:var(--text)}
+  .addp{border:1px dashed var(--border-strong);color:var(--text-3);background:transparent;border-radius:var(--radius);padding:5px 11px;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .addp:hover{color:var(--text);border-color:var(--text-3)}
+  .addp svg{width:14px;height:14px}
+  .subnote{font-size:12px;color:var(--text-3);margin-top:10px}
+
+  /* PR list */
+  .lbl{font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--text-3);margin:0 2px 10px}
+  .pr{display:flex;align-items:center;gap:14px;padding:13px 6px;border-top:1px solid var(--border)}
+  .pr:last-child{border-bottom:1px solid var(--border)}
+  .pr .prmain{min-width:0;flex:1}
+  .pr .t{display:flex;align-items:baseline;gap:8px;min-width:0}
+  .pr .num{color:var(--text-3);font-size:13px;flex:none}
+  .pr .tt{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pr .m{font-size:12px;color:var(--text-3);margin-top:3px;display:flex;align-items:center;gap:6px}
+  .pr .m .dotsep{opacity:.5}
+  .st{display:flex;align-items:center;gap:7px;font-size:12.5px;flex:none;min-width:150px}
+  .st .sd{width:7px;height:7px;border-radius:50%;flex:none}
+  .sd.idle{background:var(--text-3)} .sd.run{background:var(--blue)} .sd.ok{background:var(--green)} .sd.warn{background:var(--amber)}
+  .st .txt{color:var(--text-2)}
+  .sev{display:inline-flex;gap:7px;margin-left:2px}
+  .sev b{font-weight:400;display:inline-flex;align-items:center;gap:3px;color:var(--text-2)}
+  .sev .b{width:6px;height:6px;border-radius:50%}
+  .b.hi{background:var(--red)} .b.mi{background:var(--amber)}
+  .mini{border:1px solid var(--border-strong);background:transparent;color:var(--text-2);padding:5px 12px;border-radius:6px;font-size:12.5px;cursor:pointer;flex:none;white-space:nowrap}
+  .mini:hover{background:var(--surface-2);color:var(--text)}
+  .prog{height:3px;border-radius:3px;background:var(--raised);overflow:hidden;width:110px;margin-top:5px}
+  .prog i{display:block;height:100%;width:55%;background:var(--blue)}
+
+  /* executor / CI boundary */
+  .runrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}
+  .runrow .rl{font-size:12.5px;color:var(--text-3)}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .seg button{background:transparent;border:0;color:var(--text-2);font-size:12.5px;padding:5px 12px;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--border)}
+  .seg button.on{background:var(--surface-2);color:var(--text)}
+  .runstat{font-size:12px;color:var(--text-3)}
+  .ci-cta{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px}
+  .ci-cta .tt{font-size:13px;font-weight:500}
+  .ci-cta .ds{font-size:12px;color:var(--text-3);margin-top:3px;max-width:500px}
+  .ci-cta code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;background:var(--raised);padding:1px 5px;border-radius:4px;color:var(--text-2)}
+  .cipill{font-size:10px;letter-spacing:.4px;color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);border-radius:4px;padding:1px 5px;margin-right:5px;vertical-align:1px}
+
+  /* repo-level review (later) */
+  .later{margin-top:30px;border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--surface)}
+  .later .l{display:flex;align-items:flex-start;gap:12px}
+  .later svg.ic{width:20px;height:20px;stroke:var(--text-3);margin-top:1px;flex:none}
+  .later .tt{font-size:13.5px;font-weight:500}
+  .later .ds{font-size:12.5px;color:var(--text-3);margin-top:3px;max-width:520px}
+  .soon{font-size:11px;color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent);border-radius:5px;padding:2px 7px;margin-left:8px;vertical-align:2px}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<h2 class="sr-only">Peanut Gallery desktop, repository view: pick a repo, subscribe personas to auto-review its pull requests, and fire one-shot reviews on specific PRs.</h2>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><span class="mark"><svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/></svg></span><b>Peanut Gallery</b></div>
+    <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="Search repositories" value=""></div>
+    <div class="lhead">Repositories</div>
+    <div class="repos">
+      <div class="row on"><svg class="ri" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg><div class="rmeta"><div class="rname">acme/payments-api</div><div class="rsub">2 subscribed · 6 open</div></div><span class="pip warn"></span></div>
+      <div class="row"><svg class="ri" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg><div class="rmeta"><div class="rname">acme/web-app</div><div class="rsub">1 subscribed · 3 open</div></div><span class="pip run"></span></div>
+      <div class="row"><svg class="ri" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg><div class="rmeta"><div class="rname">acme/ledger-core</div><div class="rsub"><span class="cipill">CI</span>2 subscribed · 2 open</div></div><span class="badge">2</span></div>
+      <div class="row"><svg class="ri" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg><div class="rmeta"><div class="rname">acme/notify-worker</div><div class="rsub"><span class="cipill">CI</span>1 subscribed · 4 open</div></div></div>
+      <div class="row"><svg class="ri" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg><div class="rmeta"><div class="rname">acme/edge-gateway</div><div class="rsub">not subscribed · 0 open</div></div></div>
+      <div class="row"><svg class="ri" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg><div class="rmeta"><div class="rname">acme/design-tokens</div><div class="rsub">not subscribed · 1 open</div></div></div>
+    </div>
+    <div class="side-nav">
+      <a href="#"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 2.7-5 6-5s6 2 6 5"/></svg>Personas</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M9 7V4M15 7V4M8 7h8v4a4 4 0 0 1-8 0Z"/><path d="M12 15v5"/></svg>Providers</a>
+      <a href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3"/></svg>Settings</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div class="crumbs">acme</div>
+      <div class="titlerow">
+        <div>
+          <h1><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg>payments-api</h1>
+          <div class="stat">6 open pull requests · last reviewed 2 hours ago</div>
+        </div>
+        <button class="btn primary"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8V4Z"/></svg>Review a PR</button>
+      </div>
+    </div>
+
+    <div class="body">
+
+      <div class="sub">
+        <div class="sh">
+          <div class="l"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Auto-review — every new PR is reviewed by these personas</div>
+          <label class="toggle">On<span class="sw"></span></label>
+        </div>
+        <div class="subchips">
+          <span class="pchip" style="--pc:var(--purple)">The Architect<span class="x">×</span></span>
+          <span class="pchip" style="--pc:var(--coral)">The Bug Hunter<span class="x">×</span></span>
+          <button class="addp"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Subscribe a persona</button>
+        </div>
+        <div class="runrow">
+          <span class="rl">Runs on</span>
+          <div class="seg"><button class="on">This app</button><button>GitHub Actions</button></div>
+          <span class="runstat">Reviews run on this machine while Peanut Gallery is open.</span>
+        </div>
+        <div class="ci-cta">
+          <div>
+            <div class="tt">Set up always-on CI review</div>
+            <div class="ds">Commit the review workflow + <code>.github/peanut-gallery.json</code> so GitHub reviews every PR even when this app is closed. Peanut Gallery opens a pull request — you review and merge it.</div>
+          </div>
+          <button class="btn"><svg viewBox="0 0 24 24"><path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v3a6 6 0 0 1-6 6H9"/></svg>Open setup PR</button>
+        </div>
+        <div class="subnote">Peanut Gallery never edits your workflow files silently — every change to CI review is a pull request you approve.</div>
+      </div>
+
+      <div class="lbl">Open pull requests</div>
+
+      <div class="pr">
+        <div class="prmain">
+          <div class="t"><span class="num">#218</span><span class="tt">Add idempotency keys to the charge endpoint</span></div>
+          <div class="m">dvora <span class="dotsep">·</span> feature/idempotency <span class="dotsep">·</span> updated 2h ago</div>
+        </div>
+        <div class="st"><span class="sd warn"></span><span class="txt">3 findings</span>
+          <span class="sev"><b><span class="b hi"></span>1</b><b><span class="b mi"></span>2</b></span>
+        </div>
+        <button class="mini">View</button>
+      </div>
+
+      <div class="pr">
+        <div class="prmain">
+          <div class="t"><span class="num">#217</span><span class="tt">Retry backoff: switch to full jitter</span></div>
+          <div class="m">sam <span class="dotsep">·</span> fix/backoff <span class="dotsep">·</span> updated 5h ago</div>
+          <div class="prog"><i></i></div>
+        </div>
+        <div class="st"><span class="sd run"></span><span class="txt">Reviewing… Architect done</span></div>
+        <button class="mini">Open</button>
+      </div>
+
+      <div class="pr">
+        <div class="prmain">
+          <div class="t"><span class="num">#216</span><span class="tt">Extract the webhook signer into its own module</span></div>
+          <div class="m">lena <span class="dotsep">·</span> refactor/webhook-signer <span class="dotsep">·</span> updated yesterday</div>
+        </div>
+        <div class="st"><span class="sd ok"></span><span class="txt">Reviewed · no findings</span></div>
+        <button class="mini">View</button>
+      </div>
+
+      <div class="pr">
+        <div class="prmain">
+          <div class="t"><span class="num">#214</span><span class="tt">Bump payments SDK to 4.2</span></div>
+          <div class="m">dependabot <span class="dotsep">·</span> deps/sdk-4.2 <span class="dotsep">·</span> updated 2d ago</div>
+        </div>
+        <div class="st"><span class="sd idle"></span><span class="txt">Not reviewed</span></div>
+        <button class="mini">Review now</button>
+      </div>
+
+      <div class="pr">
+        <div class="prmain">
+          <div class="t"><span class="num">#211</span><span class="tt">Docs: payment state machine diagram</span></div>
+          <div class="m">sam <span class="dotsep">·</span> docs/state-machine <span class="dotsep">·</span> updated 3d ago</div>
+        </div>
+        <div class="st"><span class="sd ok"></span><span class="txt">Reviewed · no findings</span></div>
+        <button class="mini">View</button>
+      </div>
+
+      <div class="later">
+        <div class="l">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M8 13h8M8 17h5"/></svg>
+          <div>
+            <div class="tt">Review the whole repository<span class="soon">later</span></div>
+            <div class="ds">Run the panel across the codebase and produce a findings artifact — a markdown report, optionally opened as its own PR containing just the report. Interoperable with document-style review skills.</div>
+          </div>
+        </div>
+        <button class="btn" disabled style="opacity:.5;cursor:default">Generate report</button>
+      </div>
+
+    </div>
+  </main>
+</div>
+</body>
+</html>

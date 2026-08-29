@@ -1,0 +1,72 @@
+name: Peanut Gallery Review
+
+# Dogfood: Peanut Gallery reviews its own pull requests through its own Docker
+# container action (uses: ./). Runs on push to a PR AND on new PR comments, so the
+# reviewers can respond to the author (e.g. withdraw a finding called out as
+# intentional). Stateful across both; the bot-author guard below prevents a loop.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  # 'created' only. An EDIT to an existing comment used to buy a whole extra panel turn: a new
+  # comment defeats the unchanged-skip, so every persona re-runs (and re-verifies) against a diff
+  # that did not move. Fixing a typo in a review reply is not worth a full panel.
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# cancel-in-progress: false (issue #32) — serialize runs in the group instead of killing
+# the older one. Killing it recorded a CANCELLED conclusion that turned the check rollup
+# UNSTABLE even though the review posted fine. With false, a push-vs-comment collision
+# queues (A completes, then B runs) — both green, and the serialization keeps the
+# persona-comment writes single-writer. A genuinely stale run (head moved on) early-exits
+# green inside the action (Supersession), so it doesn't need cancelling either.
+concurrency:
+  group: peanut-gallery-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    # Efficiency filter only: skip our own bot comment events so they don't spawn no-op
+    # jobs. SECURITY (fork refusal + comment-author trust) is enforced inside the action.
+    # issue_comment fires on ALL issue comments, but the action resolves the PR by
+    # github.event.issue.number and GET /pulls/<n> 404s when <n> is a plain issue.
+    # github.event.issue.pull_request is populated ONLY for PR comments, so gate on it --
+    # run on PR comments, skip issue comments. (Bot guard unchanged; SECURITY still
+    # enforced inside the action.)
+    #
+    # Fork gate (pull_request only). `uses: ./` builds this repo's Dockerfile from
+    # the checked-out ref, so on a fork PR that is the FORK's Dockerfile, built and
+    # run on the self-hosted runner. Commands.cs:694 already refuses a fork PR, but it
+    # refuses from inside the container - by then the fork's build has already executed.
+    # This moves the refusal ahead of it.
+    #
+    # No hosted twin, unlike build.yml's test-fork job: a fork pull_request gets no
+    # secrets, so OPENROUTER_API_KEY is empty and there is no review to run. A
+    # skipped job reports neutral, so nothing hangs waiting on it.
+    #
+    # Availability and hygiene, not a security boundary: a pull_request run uses
+    # the fork's copy of this workflow and can edit the condition away. The
+    # boundary is "Require approval for all outside collaborators" under
+    # Settings -> Actions. That setting is only available once the repository is public,
+    # and enabling it is a prerequisite of going public rather than a follow-up.
+    #
+    # issue_comment needs no fork gate: that event checks out the BASE repo, so the
+    # Dockerfile built is always this repo's.
+    if: >-
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository) &&
+      (github.event_name != 'issue_comment' ||
+       (github.event.comment.user.type != 'Bot' && github.event.issue.pull_request))
+    runs-on: [self-hosted, linux, x64, docker]
+    timeout-minutes: 15   # backstop: kill a wedged review instead of holding the runner for hours
+    steps:
+      - uses: actions/checkout@v6
+      - name: Peanut Gallery
+        uses: ./
+        with:
+          config: peanut.json
+          pr-number: ${{ github.event.pull_request.number || github.event.issue.number }}
+          openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}

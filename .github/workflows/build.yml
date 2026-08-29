@@ -1,0 +1,185 @@
+name: Build and Test
+
+# The always-on gate runs on a self-hosted runner, which costs no
+# GitHub-hosted Actions minutes. The cross-platform GitHub-hosted matrix is
+# workflow_dispatch-only, so Windows/Linux confirmation stays available on demand
+# without spending the Actions budget on every PR.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: 'Run the hosted windows-latest leg'
+        type: boolean
+        default: true
+      # Defaults to false on purpose: the always-on self-hosted gate below is already
+      # Linux, so a hosted Linux leg is redundant. Windows is the platform the
+      # self-hosted runner cannot cover, so that is the one worth dispatching.
+      linux:
+        description: 'Run the hosted ubuntu-latest leg (redundant with the self-hosted gate)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  # The PR gate. Self-hosted + containerised SDK, so it needs no setup-dotnet step
+  # and consumes no hosted minutes.
+  #
+  # Trust boundary: this runs PR-authored code (restore/build/test) on a self-hosted
+  # runner. What keeps that acceptable is the `if:` below routing fork PRs to the hosted
+  # twin, the repository setting "Require approval for all outside collaborators", the
+  # runner being ephemeral and containerised, and this job holding no secrets. Keep it
+  # that way - do not add secrets, credentials, or privileged network egress here without
+  # revisiting the fork/untrusted-code exposure.
+  test:
+    # Trusted events only: pushes to main, and pull requests whose head branch is
+    # in this repository. A fork PR goes to the hosted twin below instead.
+    #
+    # This is availability and hygiene, not a security boundary: on a
+    # pull_request event GitHub runs the workflow from the PR's merge ref, so a
+    # hostile fork can edit this condition away. The boundary is the repository
+    # setting "Require approval for all outside collaborators" under
+    # Settings -> Actions. What this genuinely fixes is the honest case: without
+    # a hosted twin, a fork PR queues forever against a runner it cannot reach.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, x64, docker]
+    container: mcr.microsoft.com/dotnet/sdk:10.0
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # MinVer needs full history to derive the version from tags.
+
+      - name: Restore
+        run: dotnet restore PeanutGallery.slnx
+
+      - name: Build
+        run: dotnet build PeanutGallery.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test PeanutGallery.slnx --configuration Release --no-build
+          --logger "trx;LogFileName=test-selfhosted.trx"
+
+      # Convenience, not the gate: the pass/fail summary is already in the job log, and
+      # the artifact storage quota can be exhausted independently of the run succeeding.
+      # Don't fail a green build over an upload we can't do.
+      - name: Upload test results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-selfhosted
+          path: "**/test-*.trx"
+          if-no-files-found: error
+          retention-days: 14
+
+  # Fork pull requests. The self-hosted gate above is deliberately the always-on
+  # one to save Actions minutes; this spends them only for outside contributors,
+  # who otherwise get a check that never clears.
+  test-fork:
+    # Fork pull requests. Same checks on a GitHub-hosted runner, so an outside
+    # contributor gets a real result instead of a check that never clears.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # MinVer needs full history to derive the version from tags.
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore PeanutGallery.slnx
+
+      - name: Build
+        run: dotnet build PeanutGallery.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test PeanutGallery.slnx --configuration Release --no-build
+          --logger "trx;LogFileName=test-fork.trx"
+
+      - name: Upload test results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-fork
+          path: "**/test-*.trx"
+          if-no-files-found: error
+          retention-days: 14
+
+  # Opt-in cross-platform confirmation on GitHub-hosted runners. Manual only: these
+  # spend the Actions budget, so they are not wired to pull_request / push.
+  hosted-setup:
+    # Gated on a leg actually being requested: without this, dispatching with both
+    # inputs false would still spend a hosted minute just to report there is nothing
+    # to do - which defeats the point of this workflow.
+    if: github.event_name == 'workflow_dispatch' && (inputs.windows || inputs.linux)
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.os.outputs.matrix }}
+    steps:
+      - id: os
+        shell: bash
+        run: |
+          OSES=()
+          [ "${{ inputs.windows }}" = "true" ] && OSES+=('"windows-latest"')
+          [ "${{ inputs.linux }}" = "true" ] && OSES+=('"ubuntu-latest"')
+          ( IFS=,; echo "matrix={\"os\":[${OSES[*]}]}" >> "$GITHUB_OUTPUT" )
+
+  hosted-test:
+    needs: hosted-setup
+    strategy:
+      matrix: ${{ fromJson(needs.hosted-setup.outputs.matrix) }}
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore PeanutGallery.slnx
+
+      - name: Build
+        run: dotnet build PeanutGallery.slnx --configuration Release --no-restore
+
+      - name: Test
+        shell: bash
+        run: >
+          dotnet test PeanutGallery.slnx --configuration Release --no-build
+          --logger "trx;LogFileName=test-${{ matrix.os }}.trx"
+
+      # Convenience, not the gate: the pass/fail summary is already in the job log, and
+      # the artifact storage quota can be exhausted independently of the run succeeding.
+      # Don't fail a green build over an upload we can't do.
+      - name: Upload test results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.os }}
+          path: "**/test-*.trx"
+          if-no-files-found: error
+          retention-days: 14

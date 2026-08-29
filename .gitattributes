@@ -1,0 +1,8 @@
+# Normalize all text to LF in the repo and working tree (matches .editorconfig).
+* text=auto eol=lf
+
+# Binary assets git should not touch.
+*.png binary
+*.jpg binary
+*.ico binary
+*.snk binary

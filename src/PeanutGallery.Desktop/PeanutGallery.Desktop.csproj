@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PeanutGallery.Desktop</RootNamespace>
+    <AssemblyName>peanut-gallery-desktop</AssemblyName>
+
+    <!-- Code-only Avalonia (no XAML): compiled bindings, no runtime markup parsing. -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PeanutGallery.Core\PeanutGallery.Core.csproj" />
+    <ProjectReference Include="..\PeanutGallery.Engine\PeanutGallery.Engine.csproj" />
+  </ItemGroup>
+</Project>

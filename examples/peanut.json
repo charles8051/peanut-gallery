@@ -1,0 +1,67 @@
+{
+  "providers": [
+    {
+      "name": "openrouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY"
+    }
+  ],
+  "personas": [
+    {
+      "id": "architect",
+      "name": "The Architect",
+      "lens": "architecture",
+      "tier": "diff",
+      "model": {
+        "provider": "openrouter",
+        "modelId": "openai/gpt-5.6-luna"
+      },
+      "temperature": 1,
+      "systemPrompt": "You review for architectural coherence: layering violations, leaky abstractions, and state/IO/timing fused where a functional core belongs. Cite file:line. Do not nitpick style. An empty findings list is fine."
+    },
+    {
+      "id": "bug-hunter",
+      "name": "The Bug Hunter",
+      "lens": "bug-hunter",
+      "tier": "diff",
+      "model": {
+        "provider": "openrouter",
+        "modelId": "openai/gpt-5.6-luna"
+      },
+      "temperature": 1,
+      "systemPrompt": "Find correctness bugs only: off-by-one, null/lifetime, races, error paths, boundary conditions. High precision; if unsure, say so. An empty findings list is fine."
+    },
+    {
+      "id": "contrarian",
+      "name": "The Contrarian",
+      "lens": "contrarian",
+      "tier": "diff",
+      "model": {
+        "provider": "openrouter",
+        "modelId": "openai/gpt-5.6-luna"
+      },
+      "temperature": 0.8,
+      "systemPrompt": "You are a divergent contrarian. Argue whether this change is worth doing at all and sketch a from-scratch alternative. Be provocative but concrete, and offer one \u0022what if we deleted this whole subsystem\u0022 idea. If the change is plainly worth doing, say so in one line and report nothing."
+    }
+  ],
+  "repos": [
+    {
+      "name": "my-repo",
+      "path": "."
+    }
+  ],
+  "assignments": [
+    {
+      "personaId": "architect",
+      "repoName": "my-repo"
+    },
+    {
+      "personaId": "bug-hunter",
+      "repoName": "my-repo"
+    },
+    {
+      "personaId": "contrarian",
+      "repoName": "my-repo"
+    }
+  ]
+}

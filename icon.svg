@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="PeanutGallery">
+  <title>Peanut Gallery</title>
+  <rect width="128" height="128" rx="26" fill="#163A29"/>
+  <!-- the shell -->
+  <g transform="translate(64 64) rotate(-28) scale(1.06) translate(-64 -64)">
+    <path d="M26 64 C26 47.5 37.5 41 49 45 C56.5 47.5 59 53.3 64 53.3
+             C69 53.3 71.5 47.5 79 45 C90.5 41 102 47.5 102 64
+             C102 80.5 90.5 87 79 83 C71.5 80.5 69 74.7 64 74.7
+             C59 74.7 56.5 80.5 49 83 C37.5 87 26 80.5 26 64 Z"
+          fill="none" stroke="#D8F3DC" stroke-width="7" stroke-linejoin="round"/>
+  </g>
+</svg>

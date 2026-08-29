@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/PeanutGallery.Core/PeanutGallery.Core.csproj" />
+    <Project Path="src/PeanutGallery.Engine/PeanutGallery.Engine.csproj" />
+    <Project Path="src/PeanutGallery.Cli/PeanutGallery.Cli.csproj" />
+    <Project Path="src/PeanutGallery.Desktop/PeanutGallery.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PeanutGallery.Core.Tests/PeanutGallery.Core.Tests.csproj" />
+    <Project Path="tests/PeanutGallery.Engine.Tests/PeanutGallery.Engine.Tests.csproj" />
+    <Project Path="tests/PeanutGallery.Desktop.Tests/PeanutGallery.Desktop.Tests.csproj" />
+  </Folder>
+</Solution>

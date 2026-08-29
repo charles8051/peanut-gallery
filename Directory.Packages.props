@@ -1,0 +1,40 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Every version here is exact. Floating versions are deliberately NOT enabled:
+         a public consumer's build must resolve to the same packages this repo's CI
+         built and tested against. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Packaging / versioning / source link -->
+    <PackageVersion Include="MinVer" Version="7.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageVersion>
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.103" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Engine shell: IChatClient over OpenAI-compatible providers (OpenRouter/Fireworks) -->
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.7.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
+    <PackageVersion Include="OpenAI" Version="2.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test stack -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Desktop shell: Avalonia, code-only, Native-AOT-targeted (docs/roadmap.md).
+         Pinned to the 11.x build this repo is tested against; the roadmap targets the
+         12.x line already validated as AOT-clean — bump deliberately when adopting it. -->
+    <PackageVersion Include="Avalonia" Version="11.3.20" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.3.20" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.20" />
+  </ItemGroup>
+</Project>
