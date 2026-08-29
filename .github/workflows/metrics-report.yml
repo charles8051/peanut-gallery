@@ -47,7 +47,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  TRACKING_ISSUE: 143
+  TRACKING_ISSUE: 7
   # Pinned to a specific, verified image build rather than the mutable :main tag. Earlier
   # revisions of this workflow argued that resolving the digest right after `docker pull`
   # closed the risk, matching action.yml's accepted trust boundary for :main. Review
