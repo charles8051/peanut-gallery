@@ -24,7 +24,7 @@ Templates to copy: [`templates/feature-spec.md`](templates/feature-spec.md),
 
 | I want to know… | Read this |
 |---|---|
-| What is Peanut Gallery / how do I run it? | [`/README.md`](../README.md) |
+| What is Peanut Gallery / how do I add it to a repo? | [`/README.md`](../README.md) |
 | Why one pure core projected to many shells? | [`adr/0001-functional-core-multi-shell.md`](adr/0001-functional-core-multi-shell.md) |
 | What's built and what's next (engine, server, desktop GUI)? | [`roadmap.md`](roadmap.md) |
 | How does a config become a set of reviews? | `ReviewPlanner.Plan` in [`src/PeanutGallery.Core`](../src/PeanutGallery.Core/ReviewPlanner.cs) |
