@@ -43,9 +43,25 @@ runs:
   # the GHCR package is public; while it is private, consumers must supply a runner that
   # is already docker-login'd to GHCR.
   #
-  # :main is a MOVING tag - pinning `uses:` to a release tag pins this file, not the
-  # image it names. To pin the bytes as well, replace the tag below with a digest
-  # (`@sha256:...`), the way .github/workflows/metrics-report.yml pins its own pull.
+  # :main is a MOVING tag, and this is the reason a consumer pinning `uses:` to a
+  # release SHA still does not get pinned bytes: the pin fixes THIS FILE, and this file
+  # names a tag that moves under it.
+  #
+  # Releases now also publish `:vX.Y.Z` (see publish.yml's image job), so the fix is to
+  # point this at a version instead. It cannot be done in the same change that adds the
+  # job: this file is read at whatever commit a consumer pinned, so naming a version
+  # before that version's image exists breaks every run in between. The order is
+  #   1. ship the release-image job          <- done
+  #   2. cut a release, which builds :vX.Y.Z
+  #   3. point this line at :vX.Y.Z
+  # and from then on the version bump here is part of preparing a release, before the
+  # tag rather than after it.
+  #
+  # Note what changes when that lands: `uses: ./` in autoreview.yml resolves through
+  # this same line, so this repo's own PRs would be reviewed by the last RELEASED
+  # reviewer rather than the last merged one. Steadier, and slower to adopt its own
+  # improvements. That is a deliberate trade, not a side effect to discover later.
+  #
   # To rebuild from source instead, revert to 'Dockerfile'.
   image: 'docker://ghcr.io/charles8051/peanut-gallery:main'
   env:
