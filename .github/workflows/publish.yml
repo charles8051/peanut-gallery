@@ -73,6 +73,47 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # A release produces two artifacts, and this is the second: an image tagged with the
+  # version, so `action.yml` can name a fixed image instead of the moving `:main`.
+  #
+  # Lives here rather than in image.yml because the trigger is unambiguous. image.yml
+  # filters on `paths:`, and how a path filter interacts with a tag push is not
+  # something to guess at when the consequence is a release with no image.
+  image:
+    needs: test
+    # Tag pushes only. On a workflow_dispatch `github.ref_name` is the branch, so
+    # without this a dry run would build main and push it as `:main` - overwriting the
+    # tag the action currently resolves through, from a job whose whole purpose is to
+    # publish nothing.
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # github.ref_name on a tag push is the tag itself, so v0.1.0 -> :v0.1.0. The
+      # commit tag is pushed too: it is what lets a digest be traced back to a commit.
+      - name: Build and push the release image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+
   publish:
     needs: test
     runs-on: ubuntu-latest

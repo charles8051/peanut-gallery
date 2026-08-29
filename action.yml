@@ -43,11 +43,39 @@ runs:
   # the GHCR package is public; while it is private, consumers must supply a runner that
   # is already docker-login'd to GHCR.
   #
-  # :main is a MOVING tag - pinning `uses:` to a release tag pins this file, not the
-  # image it names. To pin the bytes as well, replace the tag below with a digest
-  # (`@sha256:...`), the way .github/workflows/metrics-report.yml pins its own pull.
+  # :main is a MOVING tag, and this is why a consumer pinning `uses:` to a release SHA
+  # still does not get pinned bytes: the pin fixes THIS FILE, and this file names a tag
+  # that moves under it.
+  #
+  # Fixing that needs a reference to an image that ALREADY EXISTS at the moment this
+  # file is committed - which rules out naming the release's own version. The commit
+  # that gets tagged vX.Y.Z cannot name :vX.Y.Z, because that image is built by the tag
+  # push, after the commit is written. Naming it earlier points at nothing.
+  #
+  # image.yml already pushes `:<git-sha>` for every main commit, so the reference that
+  # does exist in time is the PREVIOUS commit's image. Use its DIGEST rather than the SHA
+  # tag: a tag can be re-pushed by re-running image.yml for that commit, a digest cannot.
+  #
+  #   1. commit A lands on main   -> image.yml pushes :<shaA>
+  #   2. commit B sets the line below to shaA's image DIGEST, and changes nothing else
+  #   3. tag vX.Y.Z on commit B
+  #
+  # Commit B then names an image that exists, is immutable, and is the build of the code
+  # one commit behind it - which is the same code, since B only edited this file.
+  #
+  # publish.yml also publishes :vX.Y.Z on a tag push. That is a readable alias for
+  # humans tracing an image back to a release; it is NOT what makes the pin hold, and
+  # nothing resolves through it.
+  #
+  # Note what changes when step 2 first lands: autoreview.yml uses `uses: ./`, so it
+  # resolves through this same line. This repo's own PRs would be reviewed by the image
+  # named here rather than by the latest main build - steadier, and slower to adopt its
+  # own improvements. A deliberate trade, not a side effect to discover later.
+  #
   # To rebuild from source instead, revert to 'Dockerfile'.
-  image: 'docker://ghcr.io/charles8051/peanut-gallery:main'
+  # Built from commit e715d161 — the most recent commit that changed anything the image
+  # contains. Bump as step 2 of the sequence above when preparing a release.
+  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:32627ad2cd9b3b2dd0637cccd915ab802210c63b455a1a8a3274b67aab45e7bb'
   env:
     GITHUB_TOKEN: ${{ inputs.github-token }}
     OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
