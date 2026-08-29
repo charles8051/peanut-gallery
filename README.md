@@ -16,6 +16,8 @@ Drop it into any repository's PR workflow:
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]        # so you can talk back to the panel — see below
 permissions:
   contents: read
   pull-requests: write
@@ -24,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: charles8051/peanut-gallery@main
+      - uses: charles8051/peanut-gallery@v0.1.0
         with:
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
 ```
@@ -32,9 +34,10 @@ jobs:
 That is the whole setup. With no config committed you get the default panel described
 below.
 
-> `@main` tracks the default branch and can change under you. Pin a release tag — or a
-> commit SHA, which is what GitHub's hardening guidance recommends for third-party
-> actions — once you depend on it.
+> Pinned to a release tag, not `@main`. This action runs with `pull-requests: write` and
+> your model key, so a moving reference is a moving trust boundary. A commit SHA is
+> stricter still and is what GitHub's hardening guidance recommends for third-party
+> actions.
 
 ## The default panel
 
@@ -58,9 +61,11 @@ Each persona keeps its session — last SHA, running summary, open findings — 
 own PR comment. A new push sends only the delta, and the reviewer reports what changed
 and what got resolved rather than starting over.
 
-**A review runs on a push to the PR, and on a new PR comment.** A comment is how you
-talk back: explain that a finding is intentional and the reviewer withdraws it. Editing
-an existing comment does *not* trigger a review — post a new one.
+**A review runs on a push to the PR, and on a new PR comment** — the latter needs the
+`issue_comment` trigger in the quickstart above. A comment is how you talk back: explain
+that a finding is intentional and the reviewer withdraws it. Editing an existing comment
+does *not* trigger a review — `types: [created]` is deliberate, since fixing a typo in a
+reply is not worth a full panel turn. Post a new comment instead.
 
 What a comment costs is configurable via
 [`conversation`](docs/feature-specs/conversation-modes/spec.md): a `mentions` gate so
@@ -83,7 +88,7 @@ A config's provider block names only the *environment variable* its key lives in
 the key itself. So any OpenAI-compatible provider works through `provider-keys`:
 
 ```yaml
-      - uses: charles8051/peanut-gallery@main   # pin a tag or SHA — see above
+      - uses: charles8051/peanut-gallery@v0.1.0
         with:
           config: .github/peanut-gallery.json
           provider-keys: |
