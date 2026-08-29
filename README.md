@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: charles8051/peanut-gallery@v0.1.0
+      - uses: charles8051/peanut-gallery@959816696b48b1302cd1f7bbee27253f2587b3b0   # v0.1.0
         with:
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
 ```
@@ -39,10 +39,11 @@ jobs:
 That is the whole setup. With no config committed you get the default panel described
 below.
 
-> Pinned to a release tag, not `@main`. This action runs with `pull-requests: write` and
-> your model key, so a moving reference is a moving trust boundary. A commit SHA is
-> stricter still and is what GitHub's hardening guidance recommends for third-party
-> actions.
+> Pinned to a commit, with the release tag in a comment. This action runs with
+> `pull-requests: write` and your model key, so a moving reference is a moving trust
+> boundary — and a tag can be force-moved over a published release, which a commit cannot.
+> That is what GitHub's hardening guidance recommends for third-party actions. Read the
+> tag comment to see which version you are on; bump both together.
 
 ## The default panel
 
@@ -93,7 +94,7 @@ A config's provider block names only the *environment variable* its key lives in
 the key itself. So any OpenAI-compatible provider works through `provider-keys`:
 
 ```yaml
-      - uses: charles8051/peanut-gallery@v0.1.0
+      - uses: charles8051/peanut-gallery@959816696b48b1302cd1f7bbee27253f2587b3b0   # v0.1.0
         with:
           config: .github/peanut-gallery.json
           provider-keys: |
