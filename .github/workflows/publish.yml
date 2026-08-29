@@ -16,6 +16,17 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  # Dispatch is ALWAYS a dry run: it exercises the whole path - OIDC exchange, policy
+  # match, environment, packing - and never pushes. A trusted-publishing policy has
+  # four fields that must line up (owner, repo, workflow FILENAME, environment) and a
+  # wrong one fails at the login step, so the first exercise of a new policy should
+  # not have to be an irreversible publish; nuget.org cannot delete a version.
+  #
+  # There is deliberately no `dry_run: false` escape hatch. It would let a dispatch
+  # publish from whatever ref the UI happened to have selected - MinVer would derive
+  # a version from a branch rather than a v*.*.* tag, and push it permanently. One
+  # release mechanism, and it is the tag.
+  workflow_dispatch:
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -102,9 +113,22 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
+      # Gated on the EVENT, not on an input. The only push trigger is `tags: v*.*.*`,
+      # so this runs for a release tag and for nothing else - a dispatch cannot reach
+      # it whatever the UI had selected.
       - name: Push to nuget.org
+        if: ${{ github.event_name == 'push' }}
         run: >
           dotnet nuget push "packages/*.nupkg"
           --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
+
+      - name: Dry run complete
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "Dry run. The OIDC exchange with nuget.org succeeded, which means the"
+          echo "trusted-publishing policy matched on owner, repository, workflow"
+          echo "filename and environment. The packages below were built. Nothing was"
+          echo "pushed - a dispatch never publishes. Push a v*.*.* tag to release."
+          ls -lh packages/
