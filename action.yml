@@ -53,10 +53,11 @@ runs:
   # push, after the commit is written. Naming it earlier points at nothing.
   #
   # image.yml already pushes `:<git-sha>` for every main commit, so the reference that
-  # does exist in time is the PREVIOUS commit's image:
+  # does exist in time is the PREVIOUS commit's image. Use its DIGEST rather than the SHA
+  # tag: a tag can be re-pushed by re-running image.yml for that commit, a digest cannot.
   #
   #   1. commit A lands on main   -> image.yml pushes :<shaA>
-  #   2. commit B sets the line below to :<shaA>, and changes nothing else
+  #   2. commit B sets the line below to shaA's image DIGEST, and changes nothing else
   #   3. tag vX.Y.Z on commit B
   #
   # Commit B then names an image that exists, is immutable, and is the build of the code
@@ -72,7 +73,9 @@ runs:
   # own improvements. A deliberate trade, not a side effect to discover later.
   #
   # To rebuild from source instead, revert to 'Dockerfile'.
-  image: 'docker://ghcr.io/charles8051/peanut-gallery:main'
+  # Built from commit e715d161 — the most recent commit that changed anything the image
+  # contains. Bump as step 2 of the sequence above when preparing a release.
+  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:32627ad2cd9b3b2dd0637cccd915ab802210c63b455a1a8a3274b67aab45e7bb'
   env:
     GITHUB_TOKEN: ${{ inputs.github-token }}
     OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
