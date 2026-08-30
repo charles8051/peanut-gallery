@@ -708,24 +708,14 @@ internal static class Commands
 					+ "or --preview (real models, nothing posted) for an offline run");
 			}
 
-			PullRequestInfo pull;
-			try
-			{
-				pull = await gh.GetPullRequestAsync(owner, repoSlug, pr);
-			}
-			catch (GitHubApiError e) when (e.Status == 404 && GitHubEventGuard.IsCommentEvent(eventName))
-			{
-				// Belt for #37. The payload gate above is the primary fix; this covers what it
-				// cannot see - a PR deleted between the comment and this fetch, or a --pr that
-				// does not match the payload's subject. A comment-triggered run that finds no
-				// PR has nothing to review, and that is not a failure. Narrow on purpose: only
-				// 404, only the first fetch, only a comment trigger. A push-triggered 404 is a
-				// real misconfiguration and still fails.
-				Console.Error.WriteLine(
-					$"skipping: no pull request #{pr} in {owner}/{repoSlug} for this {eventName}; nothing to review.");
-				return 0;
-			}
-
+			// No 404 fallback here, deliberately. #37 asked for one as a belt, and the first
+			// draft of this fix had it: any 404 on this fetch during a comment run exited 0.
+			// That reads a wrong --slug, a token with no access to a private repo, and a
+			// mistyped --pr as "nothing to review" - a required check going green because the
+			// review never happened, which is the one outcome worse than a red X. The payload
+			// gate above already refuses the case the issue was filed for, and it refuses it
+			// from the event rather than from an API error that four causes share.
+			var pull = await gh.GetPullRequestAsync(owner, repoSlug, pr);
 			headSha = pull.HeadSha;
 			baseRef = pull.BaseRef;
 			intent = new PullRequestIntent(pull.Title, pull.Body);
