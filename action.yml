@@ -9,7 +9,13 @@ inputs:
   pr-number:
     description: 'Pull request number to review.'
     required: false
-    default: ${{ github.event.pull_request.number }}
+    # An issue_comment payload has no top-level `pull_request`, so the first half is empty
+    # on the very trigger that lets you talk back to the panel - the default resolved to ""
+    # and the run died on `--pr must be a number`. github.event.issue.number covers both
+    # comment triggers. It is an ISSUE number when the comment is on a plain issue; the
+    # action detects that from the payload and skips clean rather than fetching it as a PR
+    # (issue #37). Consumers no longer need to pass this at all.
+    default: ${{ github.event.pull_request.number || github.event.issue.number }}
   config:
     description: 'Path to a peanut config file in the repo. Empty = use the bundled default panel.'
     required: false

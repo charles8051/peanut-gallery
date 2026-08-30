@@ -653,6 +653,19 @@ internal static class Commands
 					$"refusing: {eventName} trigger is from a bot, an untrusted author, or a payload whose author cannot be read.");
 				return 0;
 			}
+
+			// Action-owned safety gate #1b (issue #37): issue_comment fires on plain issues as
+			// well as PRs, and the consumer hands us github.event.issue.number either way. An
+			// issue number is not a PR number, so GET /pulls/<n> 404s and the run goes red on
+			// an event that simply had nothing to review - every repo that adopted the
+			// quickstart shipped that gap. Skipping clean here is what lets the consumer's
+			// `if:` be an efficiency filter rather than the only thing standing between a
+			// comment on a tracking issue and a failed check.
+			if (!GitHubEventGuard.IsCommentOnPullRequest(eventJson))
+			{
+				Console.Error.WriteLine($"skipping: this {eventName} is not on a pull request; nothing to review.");
+				return 0;
+			}
 		}
 
 		// An unknown repo is always fatal - there is nothing to review against.
@@ -695,6 +708,13 @@ internal static class Commands
 					+ "or --preview (real models, nothing posted) for an offline run");
 			}
 
+			// No 404 fallback here, deliberately. #37 asked for one as a belt, and the first
+			// draft of this fix had it: any 404 on this fetch during a comment run exited 0.
+			// That reads a wrong --slug, a token with no access to a private repo, and a
+			// mistyped --pr as "nothing to review" - a required check going green because the
+			// review never happened, which is the one outcome worse than a red X. The payload
+			// gate above already refuses the case the issue was filed for, and it refuses it
+			// from the event rather than from an API error that four causes share.
 			var pull = await gh.GetPullRequestAsync(owner, repoSlug, pr);
 			headSha = pull.HeadSha;
 			baseRef = pull.BaseRef;
