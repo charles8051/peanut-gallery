@@ -653,6 +653,19 @@ internal static class Commands
 					$"refusing: {eventName} trigger is from a bot, an untrusted author, or a payload whose author cannot be read.");
 				return 0;
 			}
+
+			// Action-owned safety gate #1b (issue #37): issue_comment fires on plain issues as
+			// well as PRs, and the consumer hands us github.event.issue.number either way. An
+			// issue number is not a PR number, so GET /pulls/<n> 404s and the run goes red on
+			// an event that simply had nothing to review - every repo that adopted the
+			// quickstart shipped that gap. Skipping clean here is what lets the consumer's
+			// `if:` be an efficiency filter rather than the only thing standing between a
+			// comment on a tracking issue and a failed check.
+			if (!GitHubEventGuard.IsCommentOnPullRequest(eventJson))
+			{
+				Console.Error.WriteLine($"skipping: this {eventName} is not on a pull request; nothing to review.");
+				return 0;
+			}
 		}
 
 		// An unknown repo is always fatal - there is nothing to review against.
@@ -695,7 +708,24 @@ internal static class Commands
 					+ "or --preview (real models, nothing posted) for an offline run");
 			}
 
-			var pull = await gh.GetPullRequestAsync(owner, repoSlug, pr);
+			PullRequestInfo pull;
+			try
+			{
+				pull = await gh.GetPullRequestAsync(owner, repoSlug, pr);
+			}
+			catch (GitHubApiError e) when (e.Status == 404 && GitHubEventGuard.IsCommentEvent(eventName))
+			{
+				// Belt for #37. The payload gate above is the primary fix; this covers what it
+				// cannot see - a PR deleted between the comment and this fetch, or a --pr that
+				// does not match the payload's subject. A comment-triggered run that finds no
+				// PR has nothing to review, and that is not a failure. Narrow on purpose: only
+				// 404, only the first fetch, only a comment trigger. A push-triggered 404 is a
+				// real misconfiguration and still fails.
+				Console.Error.WriteLine(
+					$"skipping: no pull request #{pr} in {owner}/{repoSlug} for this {eventName}; nothing to review.");
+				return 0;
+			}
+
 			headSha = pull.HeadSha;
 			baseRef = pull.BaseRef;
 			intent = new PullRequestIntent(pull.Title, pull.Body);

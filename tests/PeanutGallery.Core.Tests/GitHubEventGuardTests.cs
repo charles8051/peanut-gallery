@@ -99,4 +99,57 @@ public class GitHubEventGuardTests
 	{
 		Assert.Null(GitHubEventGuard.TriggerHeadSha(json));
 	}
+
+	// --- IsCommentOnPullRequest (#37) --------------------------------------------------
+
+	[Fact]
+	public void An_issue_comment_on_a_pull_request_is_reviewable()
+	{
+		// GitHub populates issue.pull_request ONLY when the issue is a PR. This link object
+		// is the single field separating the two things issue_comment fires for.
+		Assert.True(GitHubEventGuard.IsCommentOnPullRequest(
+			"""{"issue":{"number":12,"pull_request":{"url":"https://api.github.com/repos/o/r/pulls/12"}}}"""));
+	}
+
+	[Fact]
+	public void An_issue_comment_on_a_plain_issue_is_not_reviewable()
+	{
+		// The #37 case: a maintainer comments on a tracking issue. The workflow hands the
+		// action github.event.issue.number, which is not a PR number. Refusing here is what
+		// turns a red 404 into a clean skip.
+		Assert.False(GitHubEventGuard.IsCommentOnPullRequest("""{"issue":{"number":12,"title":"epic"}}"""));
+	}
+
+	[Fact]
+	public void A_review_comment_carries_the_pull_request_at_the_root()
+	{
+		// pull_request_review_comment has no `issue` at all, so the issue.pull_request test
+		// would refuse every one of them. Both shapes are checked for that reason.
+		Assert.True(GitHubEventGuard.IsCommentOnPullRequest("""{"pull_request":{"number":12}}"""));
+	}
+
+	[Theory]
+	[InlineData(null)]                                            // GITHUB_EVENT_PATH unset
+	[InlineData("")]
+	[InlineData("   ")]
+	[InlineData("not json")]
+	[InlineData("[]")]                                            // valid JSON, non-object root
+	[InlineData("null")]
+	[InlineData("42")]
+	[InlineData("\"payload\"")]
+	[InlineData("{}")]
+	[InlineData("""{"issue":null}""")]
+	[InlineData("""{"issue":"#12"}""")]                           // present but not an object
+	[InlineData("""{"issue":[]}""")]
+	[InlineData("""{"issue":{"pull_request":null}}""")]           // key present, not a link
+	[InlineData("""{"issue":{"pull_request":"https://..."}}""")]  // a string is not the link object
+	[InlineData("""{"pull_request":null}""")]
+	[InlineData("""{"pull_request":[]}""")]
+	public void Fails_CLOSED_when_the_comments_subject_cannot_be_established(string? json)
+	{
+		// Same contract as the trust gate: on a comment-triggered run, "cannot tell" means
+		// refuse. Every non-object descent is checked before TryGetProperty, which THROWS on
+		// a non-object element rather than returning false.
+		Assert.False(GitHubEventGuard.IsCommentOnPullRequest(json));
+	}
 }

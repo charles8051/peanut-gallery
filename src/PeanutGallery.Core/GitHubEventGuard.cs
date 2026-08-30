@@ -35,6 +35,57 @@ public static class GitHubEventGuard
 	public static bool IsCommentEvent(string? eventName) =>
 		eventName is "issue_comment" or "pull_request_review_comment";
 
+	/// <summary>
+	/// True when a comment event's payload says the comment is attached to a pull request.
+	///
+	/// <para>Two shapes, because <see cref="IsCommentEvent"/> covers two triggers.
+	/// <c>issue_comment</c> fires for issues AND pull requests and separates them by
+	/// <c>issue.pull_request</c>, an object GitHub populates only when the issue is a PR.
+	/// <c>pull_request_review_comment</c> carries the pull request at the root instead and
+	/// has no <c>issue</c> at all.</para>
+	///
+	/// <para><b>Fails CLOSED</b>, like the trust gate above: absent, unreadable, or
+	/// non-object payloads on a comment-triggered run all mean "a comment whose subject
+	/// cannot be established". Refusing costs a review that should have run and says so on
+	/// stderr; accepting sends whatever number the workflow passed to
+	/// <c>GET /pulls/{n}</c>, and a comment on a plain issue hands over an issue number -
+	/// the 404 this exists to prevent (#37).</para>
+	/// </summary>
+	public static bool IsCommentOnPullRequest(string? eventJson)
+	{
+		if (string.IsNullOrWhiteSpace(eventJson))
+		{
+			return false;
+		}
+
+		try
+		{
+			using var doc = JsonDocument.Parse(eventJson);
+			var root = doc.RootElement;
+			if (root.ValueKind != JsonValueKind.Object)
+			{
+				return false;
+			}
+
+			// pull_request_review_comment: the PR is at the root, and its presence IS the answer.
+			if (root.TryGetProperty("pull_request", out var pr) && pr.ValueKind == JsonValueKind.Object)
+			{
+				return true;
+			}
+
+			// issue_comment: the link object exists only for a PR, so a plain issue lands here
+			// with no `pull_request` key and is refused.
+			return root.TryGetProperty("issue", out var issue)
+				&& issue.ValueKind == JsonValueKind.Object
+				&& issue.TryGetProperty("pull_request", out var link)
+				&& link.ValueKind == JsonValueKind.Object;
+		}
+		catch (JsonException)
+		{
+			return false;
+		}
+	}
+
 	public static bool IsTrustedCommentEvent(string? eventJson)
 	{
 		if (string.IsNullOrWhiteSpace(eventJson))

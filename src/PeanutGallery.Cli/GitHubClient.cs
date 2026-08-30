@@ -286,7 +286,7 @@ internal sealed class GitHubClient : IDisposable
 		}
 
 		var detail = await resp.Content.ReadAsStringAsync(ct);
-		throw new CliError($"GitHub API {(int)resp.StatusCode} on {what}: {detail.Trim()}");
+		throw new GitHubApiError((int)resp.StatusCode, $"GitHub API {(int)resp.StatusCode} on {what}: {detail.Trim()}");
 	}
 
 	public void Dispose() => _http.Dispose();

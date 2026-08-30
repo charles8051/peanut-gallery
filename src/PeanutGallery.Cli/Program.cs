@@ -66,7 +66,18 @@ internal static class Program
 }
 
 /// <summary>A user-facing error: printed without a stack trace, exits non-zero.</summary>
-internal sealed class CliError(string message) : Exception(message);
+internal class CliError(string message) : Exception(message);
+
+/// <summary>
+/// A <see cref="CliError"/> that remembers the HTTP status, so a caller can treat one
+/// status differently without string-matching the message. Used for #37: a 404 on the
+/// initial PR fetch of a comment-triggered run is "nothing to review", not a failure.
+/// Every other status still surfaces as an ordinary CliError.
+/// </summary>
+internal sealed class GitHubApiError(int status, string message) : CliError(message)
+{
+	public int Status { get; } = status;
+}
 
 /// <summary>Minimal, reflection-free argument bag: <c>--key value</c>, <c>--flag</c>, and positionals.</summary>
 internal sealed class Args
