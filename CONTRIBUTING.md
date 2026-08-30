@@ -47,8 +47,16 @@ dotnet run --project src/PeanutGallery.Cli -- <command>   # e.g. init, validate,
 
 ## Releases
 
-Versions come from `v*.*.*` git tags via MinVer — never hand-edit a version. The action's
-container image is rebuilt and pushed on every `main` merge (moving `:main` tag).
+Versions come from `v*.*.*` git tags via MinVer — never hand-edit a version, and pushing
+a `v*.*.*` tag is what publishes the dotnet tool to nuget.org.
+
+The action's container image is rebuilt and pushed by
+[`image.yml`](.github/workflows/image.yml) on a `main` push that touches what goes into
+the image — `src/**`, `action/**`, `Dockerfile`, `action.yml`, or the build config. A
+docs-only merge does not rebuild it, so `:main` can sit on an older commit than `main`
+itself. A build moves the `:main` tag and pushes an immutable `:<sha>` alongside it.
+[`action.yml`](action.yml) pins an image *digest*, so a rebuild does not reach consumers
+until that pin is bumped in its own commit.
 
 ## Reporting security issues
 
