@@ -4,8 +4,8 @@
 
 Most review bots give you one reviewer with one opinion. Peanut Gallery convenes a
 *panel* — an architect, a bug-hunter, a contrarian who argues the change should not
-exist — each running on a model you choose, each posting a verdict that updates itself
-as you push.
+exist — each running on a model you choose, speaking through a verdict that updates
+itself as you push.
 
 ## Quickstart
 
@@ -64,9 +64,11 @@ Commit a [`peanut.json`](examples/peanut.json) when you want to pin your own len
 
 ## Reviews are stateful
 
-Each persona keeps its session — last SHA, running summary, open findings — inside its
-own PR comment. A new push sends only the delta, and the reviewer reports what changed
-and what got resolved rather than starting over.
+Every persona keeps its own session — last SHA, running summary, open findings — and
+that state rides inside the comment it is rendered in: the panel's single comment under
+the default `comment: panel`, or the persona's own comment under `perPersona`. A new
+push sends only the delta, and the reviewer reports what changed and what got resolved
+rather than starting over.
 
 **A review runs on a push to the PR, and on a new PR comment** — the latter needs the
 `issue_comment` trigger in the quickstart above. A comment is how you talk back: explain
