@@ -1,8 +1,10 @@
 name: Build Image
 
 # Builds the Peanut Gallery container-action image and pushes it to GHCR under a MOVING
-# `:main` tag, plus an immutable `:<sha>` for pinning. Path-filtered (see `on:` below):
-# a push to main that touches only docs does not rebuild, so `:main` can sit behind main.
+# `:main` tag, plus a `:<sha>` alongside it. Neither is immutable - a GHCR tag can be
+# overwritten, and no policy here forbids it; the DIGEST is the stable reference.
+# Path-filtered (see `on:` below): a push to main touching only docs does not rebuild,
+# so `:main` can sit behind main. Editing this file does rebuild - it is in the filter.
 #
 # action.yml pins an image DIGEST rather than naming `:main`, so a build here does not
 # reach consumers until that pin is bumped in its own commit. Either way they pull a
