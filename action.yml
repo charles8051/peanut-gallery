@@ -79,10 +79,15 @@ runs:
   # own improvements. A deliberate trade, not a side effect to discover later.
   #
   # To rebuild from source instead, revert to 'Dockerfile'.
-  # Built from commit 27489a3, and tagged :v0.1.1-rc.1 in the registry. This is step 2
-  # of the sequence above, done in preparation for tagging v0.1.1 on the commit that
-  # carries this line.
-  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:e7aeb18af3f7fe1f6d08c5bc001655dfcb11f478a043a75bc52c9caf4f46cc8e'
+  # Built from commit 970ac3d. This is step 2 of the sequence above, done in preparation
+  # for tagging v0.1.1 on the commit that carries this line. 970ac3d is the #37 fix, so
+  # this is the pin that first carries it to consumers - the source landing on main did
+  # not, which is the whole point of the sequence.
+  #
+  # The digest is the INDEX digest (application/vnd.oci.image.index.v1+json), not either
+  # per-platform manifest under it. That is what `docker buildx imagetools inspect
+  # <tag>` reports as `Digest:`, and what the previous pin used.
+  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:ce0ce5949b3d144059f18196142fed16caa0bf6aee8eaf735476aa8fc922552b'
   env:
     GITHUB_TOKEN: ${{ inputs.github-token }}
     OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
