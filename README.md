@@ -23,15 +23,13 @@ permissions:
   pull-requests: write
 jobs:
   review:
-    # Comments land on issues as well as PRs, and the panel answers its own
-    # comments. Skip both rather than starting a job that has nothing to do.
-    if: >-
-      github.event_name != 'issue_comment' ||
-      (github.event.comment.user.type != 'Bot' && github.event.issue.pull_request)
+    # Optional. The action skips a comment that is not on a PR by itself; this
+    # only avoids starting a job for the panel's own comments.
+    if: github.event.comment.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: charles8051/peanut-gallery@959816696b48b1302cd1f7bbee27253f2587b3b0   # v0.1.0
+      - uses: charles8051/peanut-gallery@aa1f3845086e0400b5d64070b876a45444207bad   # v0.1.1
         with:
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
 ```
@@ -94,7 +92,7 @@ A config's provider block names only the *environment variable* its key lives in
 the key itself. So any OpenAI-compatible provider works through `provider-keys`:
 
 ```yaml
-      - uses: charles8051/peanut-gallery@959816696b48b1302cd1f7bbee27253f2587b3b0   # v0.1.0
+      - uses: charles8051/peanut-gallery@aa1f3845086e0400b5d64070b876a45444207bad   # v0.1.1
         with:
           config: .github/peanut-gallery.json
           provider-keys: |
