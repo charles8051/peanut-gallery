@@ -31,11 +31,15 @@ jobs:
   review:
     # Efficiency filter only: skip our own bot comment events so they don't spawn no-op
     # jobs. SECURITY (fork refusal + comment-author trust) is enforced inside the action.
-    # issue_comment fires on ALL issue comments, but the action resolves the PR by
-    # github.event.issue.number and GET /pulls/<n> 404s when <n> is a plain issue.
-    # github.event.issue.pull_request is populated ONLY for PR comments, so gate on it --
-    # run on PR comments, skip issue comments. (Bot guard unchanged; SECURITY still
-    # enforced inside the action.)
+    #
+    # Both clauses are AVAILABILITY, not correctness. Since v0.1.1 the action reads the
+    # comment's subject from the payload and skips a non-PR comment on its own, so
+    # dropping issue.pull_request here would no longer turn a comment on a tracking issue
+    # red. It would still be wrong: the action can only skip AFTER a runner has taken the
+    # job and pulled the container, and this repo is public with a self-hosted runner, so
+    # anyone who can open an issue could start unbounded no-op jobs on it. Eligibility has
+    # to be decided at this boundary because that is the only place the cost is still
+    # unpaid. The action's own check stays as defence in depth.
     #
     # Fork gate (pull_request only). `uses: ./` builds this repo's Dockerfile from
     # the checked-out ref, so on a fork PR that is the FORK's Dockerfile, built and
@@ -58,8 +62,8 @@ jobs:
     if: >-
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository) &&
-      (github.event_name != 'issue_comment' ||
-       (github.event.comment.user.type != 'Bot' && github.event.issue.pull_request))
+      github.event.comment.user.type != 'Bot' &&
+      (github.event_name != 'issue_comment' || github.event.issue.pull_request)
     runs-on: [self-hosted, linux, x64, docker]
     timeout-minutes: 15   # backstop: kill a wedged review instead of holding the runner for hours
     steps:
@@ -68,5 +72,6 @@ jobs:
         uses: ./
         with:
           config: peanut.json
-          pr-number: ${{ github.event.pull_request.number || github.event.issue.number }}
+          # pr-number is action.yml's default now - it carries the same
+          # `pull_request.number || issue.number` fallback this line used to spell out.
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
