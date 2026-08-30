@@ -1,12 +1,17 @@
 name: Build Image
 
-# Builds the Peanut Gallery container-action image and pushes it to GHCR on every
-# push to main, under a MOVING `:main` tag (plus an immutable `:<sha>` for pinning).
-# action.yml points consumers at `docker://ghcr.io/charles8051/peanut-gallery:main`,
-# so they pull a prebuilt image instead of building the Dockerfile per review job.
+# Builds the Peanut Gallery container-action image and pushes it to GHCR under a MOVING
+# `:main` tag, plus a `:<sha>` alongside it. Neither is immutable - a GHCR tag can be
+# overwritten, and no policy here forbids it; the DIGEST is the stable reference.
+# Path-filtered (see `on:` below): a push to main touching only docs does not rebuild,
+# so `:main` can sit behind main. Editing this file does rebuild - it is in the filter.
 #
-# The package is PRIVATE (the repo's choice), so the runner must be `docker login`'d to
-# GHCR once (as the runner user) for consumer pulls to authenticate with no per-workflow changes.
+# action.yml pins an image DIGEST rather than naming `:main`, so a build here does not
+# reach consumers until that pin is bumped in its own commit. Either way they pull a
+# prebuilt image instead of building the Dockerfile per review job.
+#
+# The package is PUBLIC, so a consumer pull needs no authentication. The login step below
+# is for the PUSH out of this workflow, which needs `packages: write` either way.
 #
 # Buildkit registry cache (`:buildcache`) persists the SDK restore/publish layers in
 # GHCR, so a source-only change reuses the cached restore (paired with the split

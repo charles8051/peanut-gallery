@@ -47,8 +47,23 @@ dotnet run --project src/PeanutGallery.Cli -- <command>   # e.g. init, validate,
 
 ## Releases
 
-Versions come from `v*.*.*` git tags via MinVer — never hand-edit a version. The action's
-container image is rebuilt and pushed on every `main` merge (moving `:main` tag).
+Versions come from `v*.*.*` git tags via MinVer — never hand-edit a version, and pushing
+a `v*.*.*` tag is what publishes the dotnet tool to nuget.org.
+
+The action's container image is rebuilt and pushed by
+[`image.yml`](.github/workflows/image.yml) on a `main` push matching its `on.push.paths`
+— `src/**`, `action/**`, `Dockerfile`, `action.yml`, `PeanutGallery.slnx`,
+`Directory.Build.props`, `Directory.Packages.props`, `global.json`, `nuget.config`, and
+`.github/workflows/image.yml` itself. Read that list off the workflow rather than this
+paragraph if the two ever disagree. The filter is about location, not file type: a
+merge touching only docs *outside* those paths does not rebuild, so `:main` can sit on
+an older commit than `main` itself — but a markdown file under `src/**` or `action/**`
+would, and so does a change to the workflow file, even when only its comments moved.
+
+A build moves the `:main` tag and pushes a `:<sha>` alongside it. Neither is immutable:
+GHCR tags can be overwritten, and nothing here forbids it. The digest is the only stable
+reference, which is what [`action.yml`](action.yml) pins — so a rebuild does not reach
+consumers until that pin is bumped in its own commit.
 
 ## Reporting security issues
 
