@@ -23,9 +23,12 @@ permissions:
   pull-requests: write
 jobs:
   review:
-    # Optional. The action skips a comment that is not on a PR by itself; this
-    # only avoids starting a job for the panel's own comments.
-    if: github.event.comment.user.type != 'Bot'
+    # Cost, not correctness — the action skips a bot comment and a comment on a
+    # plain issue by itself, but only once a runner has taken the job. Keep this
+    # unless you want a job started for every comment in the repository.
+    if: >-
+      github.event.comment.user.type != 'Bot' &&
+      (github.event_name != 'issue_comment' || github.event.issue.pull_request)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

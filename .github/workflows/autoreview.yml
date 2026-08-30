@@ -32,11 +32,14 @@ jobs:
     # Efficiency filter only: skip our own bot comment events so they don't spawn no-op
     # jobs. SECURITY (fork refusal + comment-author trust) is enforced inside the action.
     #
-    # The issue.pull_request clause that used to live here is gone as of v0.1.1. It was
-    # standing in for the action: issue_comment fires on plain issues too, and the number
-    # below is then an issue number, which GET /pulls/<n> 404s on. The action now reads
-    # the comment's subject from the event payload and skips clean, so this condition no
-    # longer decides whether a run succeeds - only whether one starts.
+    # Both clauses are AVAILABILITY, not correctness. Since v0.1.1 the action reads the
+    # comment's subject from the payload and skips a non-PR comment on its own, so
+    # dropping issue.pull_request here would no longer turn a comment on a tracking issue
+    # red. It would still be wrong: the action can only skip AFTER a runner has taken the
+    # job and pulled the container, and this repo is public with a self-hosted runner, so
+    # anyone who can open an issue could start unbounded no-op jobs on it. Eligibility has
+    # to be decided at this boundary because that is the only place the cost is still
+    # unpaid. The action's own check stays as defence in depth.
     #
     # Fork gate (pull_request only). `uses: ./` builds this repo's Dockerfile from
     # the checked-out ref, so on a fork PR that is the FORK's Dockerfile, built and
@@ -59,7 +62,8 @@ jobs:
     if: >-
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository) &&
-      github.event.comment.user.type != 'Bot'
+      github.event.comment.user.type != 'Bot' &&
+      (github.event_name != 'issue_comment' || github.event.issue.pull_request)
     runs-on: [self-hosted, linux, x64, docker]
     timeout-minutes: 15   # backstop: kill a wedged review instead of holding the runner for hours
     steps:
