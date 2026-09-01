@@ -16,19 +16,11 @@ Drop it into any repository's PR workflow:
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
-  issue_comment:
-    types: [created]        # so you can talk back to the panel — see below
 permissions:
   contents: read
   pull-requests: write
 jobs:
   review:
-    # Cost, not correctness — the action skips a bot comment and a comment on a
-    # plain issue by itself, but only once a runner has taken the job. Keep this
-    # unless you want a job started for every comment in the repository.
-    if: >-
-      github.event.comment.user.type != 'Bot' &&
-      (github.event_name != 'issue_comment' || github.event.issue.pull_request)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -37,14 +29,44 @@ jobs:
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
 ```
 
-That is the whole setup. With no config committed you get the default panel described
-below.
+That is a working review on every push to a PR. With no config committed you get the
+default panel described below. Keep the checkout: it is what lets the reviewers read
+around the diff rather than seeing the patch alone.
 
 > Pinned to a commit, with the release tag in a comment. This action runs with
 > `pull-requests: write` and your model key, so a moving reference is a moving trust
 > boundary — and a tag can be force-moved over a published release, which a commit cannot.
 > That is what GitHub's hardening guidance recommends for third-party actions. Read the
 > tag comment to see which version you are on; bump both together.
+
+### Opt-ins
+
+Neither of these is needed for a working review.
+
+**Talk back to the panel.** Add the comment trigger, and a reply explaining that a
+finding is intentional gets it withdrawn:
+
+```yaml
+on:
+  issue_comment:
+    types: [created]        # an EDIT to an existing comment does not re-run — see below
+```
+
+**Skip no-op jobs.** With the comment trigger on, every comment anywhere in the
+repository starts a job. The action exits out of the ones that are not a human comment
+on a PR, but only after a runner has taken the job and pulled the container. This filter
+decides it while the cost is still unpaid:
+
+```yaml
+jobs:
+  review:
+    if: >-
+      github.event.comment.user.type != 'Bot' &&
+      (github.event_name != 'issue_comment' || github.event.issue.pull_request)
+```
+
+Cost, not correctness: since v0.1.1 the action refuses a bot comment and skips a comment
+on a plain issue on its own. Worth adding on a busy repository.
 
 ## The default panel
 
@@ -71,7 +93,7 @@ push sends only the delta, and the reviewer reports what changed and what got re
 rather than starting over.
 
 **A review runs on a push to the PR, and on a new PR comment** — the latter needs the
-`issue_comment` trigger in the quickstart above. A comment is how you talk back: explain
+`issue_comment` opt-in above. A comment is how you talk back: explain
 that a finding is intentional and the reviewer withdraws it. Editing an existing comment
 does *not* trigger a review — `types: [created]` is deliberate, since fixing a typo in a
 reply is not worth a full panel turn. Post a new comment instead.
