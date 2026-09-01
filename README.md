@@ -52,6 +52,10 @@ on:
     types: [created]        # an EDIT to an existing comment does not re-run — see below
 ```
 
+Address the reply to `@peanut-gallery`. The bundled default gates conversation behind
+that mention, so a reply without it starts a job and is then ignored — see
+[Reviews are stateful](#reviews-are-stateful) for the modes and how to change the gate.
+
 **Skip no-op jobs.** With the comment trigger on, every comment anywhere in the
 repository starts a job. The action exits out of the ones that are not a human comment
 on a PR, but only after a runner has taken the job and pulled the container. This filter
