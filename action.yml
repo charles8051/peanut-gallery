@@ -79,15 +79,28 @@ runs:
   # own improvements. A deliberate trade, not a side effect to discover later.
   #
   # To rebuild from source instead, revert to 'Dockerfile'.
-  # Built from commit 970ac3d. This is step 2 of the sequence above, done in preparation
-  # for tagging v0.1.1 on the commit that carries this line. 970ac3d is the #37 fix, so
-  # this is the pin that first carries it to consumers - the source landing on main did
-  # not, which is the whole point of the sequence.
+  # Built from commit 4f654d4, step 2 of the sequence above. Provenance, from the
+  # metrics-report.yml procedure run on 2026-09-01:
+  #   `docker buildx imagetools inspect :main` -> Digest sha256:85d5a0e6...,
+  #   MediaType application/vnd.oci.image.index.v1+json
+  #   package version 1189169859, created 2026-08-30T23:51:26Z
+  #   tags ["4f654d424c2c4fcf64b9555c9411db757b043b8c", "main"]
+  # Both tags on one version is the check: it is simultaneously what :main resolves to
+  # and the build of 4f654d4, with no second candidate. That commit is "docs: the image
+  # build is path-filtered, and its header said otherwise (#51)", the tip of main, with
+  # build=success and test=success (test-fork and the hosted matrix skip by design on a
+  # push).
+  #
+  # What this bump actually moves: nothing in the container. Between the previous pin's
+  # build (970ac3d) and 4f654d4, `git diff -- src action Dockerfile action.yml` touches
+  # only action.yml, which the runtime stage does not copy. The three intervening commits
+  # are docs and a workflow comment. The pin is bumped to keep the gap between it and
+  # :main small enough to review, not to ship a behaviour change.
   #
   # The digest is the INDEX digest (application/vnd.oci.image.index.v1+json), not either
   # per-platform manifest under it. That is what `docker buildx imagetools inspect
   # <tag>` reports as `Digest:`, and what the previous pin used.
-  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:ce0ce5949b3d144059f18196142fed16caa0bf6aee8eaf735476aa8fc922552b'
+  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:85d5a0e6c384234859d31c75cd77e25a0ed5599d980d606fb550af881d7a02aa'
   env:
     GITHUB_TOKEN: ${{ inputs.github-token }}
     OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
