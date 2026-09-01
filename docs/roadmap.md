@@ -65,8 +65,9 @@ nuget.org first).
 Peanut Gallery is a Docker container action (`action.yml` + `Dockerfile` at the repo
 root): any repo adds `uses: charles8051/peanut-gallery@main` with a provider key and a
 config (or the bundled default panel). Runner-agnostic, versioned, stateful across
-pushes. This repo dogfoods it via `uses: ./`. Kept private (no Marketplace). Next: a
-`--fail-on` gate exposed as an action output
+pushes. This repo dogfoods it via `uses: ./`. The GHCR package is public, so any runner
+pulls the image with no credential; the action itself is not listed on the GitHub
+Marketplace. Next: a `--fail-on` gate exposed as an action output
 ([#4](https://github.com/charles8051/peanut-gallery/issues/4)).
 
 ## Done — prebuilt GHCR image (sub-build-time cold starts)
@@ -74,25 +75,30 @@ pushes. This repo dogfoods it via `uses: ./`. Kept private (no Marketplace). Nex
 GitHub used to rebuild the container action from the `Dockerfile` at the start of every
 review job (a full `dotnet restore`/`publish`). It now pulls a prebuilt image instead:
 
-- **`.github/workflows/image.yml`** builds the image on every push to `main` and pushes
-  it to `ghcr.io/charles8051/peanut-gallery` under a **moving `:main` tag** (plus an
-  immutable `:<sha>`), with a buildkit **registry cache** (`:buildcache`). The `Dockerfile`
-  splits the `dotnet restore` into its own layer so a source-only change reuses the
-  cached restore.
-- **`action.yml`** uses `image: docker://ghcr.io/charles8051/peanut-gallery:main`, so
-  consumers (and this repo's dogfood) `docker pull` a ready ~runtime image instead of
-  building it per job.
-- **Image visibility is the consumer gate.** A public GHCR package is pulled by any
-  runner with no credential and no per-workflow change; a private one requires every
-  consumer to supply a runner already `docker login`'d to GHCR. Nothing in this repo can
-  set that - it is a package setting with no API - so making it public is a release
-  prerequisite rather than a nicety.
-- **Dogfood note:** this repo's own review (`uses: ./`) now pulls `:main` rather than
-  building the PR's source, so a PR is reviewed by the last-merged reviewer version (a
+- **`.github/workflows/image.yml`** builds the image on a push to `main` that touches a
+  path in its filter (`src/**`, `action/**`, `Dockerfile`, `action.yml`, the build
+  config, or the workflow itself), and pushes it to `ghcr.io/charles8051/peanut-gallery`
+  under a **moving `:main` tag** plus a `:<sha>`. Neither tag is immutable — a GHCR tag
+  can be overwritten, and the **digest** is the stable reference. A docs-only merge does
+  not rebuild, so `:main` can sit behind `main`. The build uses a buildkit **registry
+  cache** (`:buildcache`), and the `Dockerfile` splits the `dotnet restore` into its own
+  layer so a source-only change reuses the cached restore.
+- **`action.yml`** pins an image **digest** (`docker://ghcr.io/...@sha256:...`) rather
+  than naming `:main`, so a new build does not reach consumers until that pin is bumped
+  in its own commit. Either way, consumers (and this repo's dogfood) `docker pull` a
+  ready runtime image instead of building it per job. The update procedure — resolve
+  `:main`, map the digest back to the commit it was built from, paste both in a reviewed
+  PR — is written out in `.github/workflows/metrics-report.yml`.
+- **The GHCR package is public.** Any runner pulls it with no credential and no
+  per-workflow change. This was the release prerequisite: a private package would
+  require every consumer to supply a runner already `docker login`'d to GHCR, and
+  nothing in this repo can set that — it is a package setting with no API.
+- **Dogfood note:** this repo's own review (`uses: ./`) pulls the pinned digest rather
+  than building the PR's source, so a PR is reviewed by the pinned reviewer version (a
   stable reviewer, not the unreviewed PR code) — acceptable, revisit if PR fidelity is
   wanted.
-- **Follow-up:** cut the same image on `v*.*.*` release tags for immutable pinning
-  alongside the moving `:main`.
+- **Done:** `publish.yml` cuts the same image on a `v*.*.*` tag push (`:v0.1.1`
+  alongside `:<sha>`), so a release has an image to pin by digest.
 
 ## Done — per-PR opt-out
 
