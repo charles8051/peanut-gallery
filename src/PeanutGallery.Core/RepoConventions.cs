@@ -56,9 +56,12 @@ public sealed record RepoConventions(IReadOnlyList<ConventionsFile> Files)
 	/// that apply: their text, the source list, and the per-file headings. It is spent in order -
 	/// each file gets an equal share of what is left, and a file shorter than its share rolls the
 	/// surplus forward - so a small root file lets a large subtree file be sent whole, and a single
-	/// file behaves exactly as it did when only one could ever apply. What sits OUTSIDE the budget
-	/// is fixed text, the same sentences on every turn whatever applies, so the rendered block is
-	/// this budget plus a constant rather than something that scales with the change.</para>
+	/// file behaves exactly as it did when only one could ever apply. A budget too small to give a
+	/// file even one character stops the rendering rather than emitting a heading and a bare
+	/// ellipsis per file, which would grow the block with the file count - the one thing the budget
+	/// exists to prevent. What sits OUTSIDE it is the framing, which is fixed, and the source list,
+	/// which names every file that applies and so is bounded by
+	/// <see cref="ConventionsDiscovery.DefaultMaxScopes"/> paths rather than by this budget.</para>
 	/// </summary>
 	public string PromptBlock(int maxChars = DefaultMaxChars)
 	{
@@ -94,10 +97,20 @@ public sealed record RepoConventions(IReadOnlyList<ConventionsFile> Files)
 
 				// An equal share of what is LEFT, so a short file's surplus rolls forward rather
 				// than being forfeited, and the last file can spend everything nobody else used.
-				var share = Math.Max(0, remaining) / (files.Count - i);
+				var share = remaining / (files.Count - i);
+				if (share <= 0)
+				{
+					// Nothing left to spend. Rendering a heading and a bare ellipsis for this
+					// file and every one after it would grow the block with the file count,
+					// which is the one thing the budget exists to prevent. Stop instead; the
+					// note below says the block is short.
+					truncated = true;
+					break;
+				}
+
 				if (text.Length > share)
 				{
-					text = text[..Math.Max(0, share - 1)] + "…"; // the ellipsis costs one too
+					text = text[..(share - 1)] + "…"; // the ellipsis costs one too
 					truncated = true;
 				}
 
@@ -109,7 +122,7 @@ public sealed record RepoConventions(IReadOnlyList<ConventionsFile> Files)
 
 		if (truncated)
 		{
-			sb.Append("\n(These conventions were truncated; the file is longer than shown.)\n");
+			sb.Append("\n(These conventions were truncated to fit the prompt; some rules are not shown.)\n");
 		}
 
 		return sb.ToString();

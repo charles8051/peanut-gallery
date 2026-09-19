@@ -225,4 +225,19 @@ public class RepoConventionsTests
 
 		Assert.True(eight <= one, $"one={one} eight={eight}");
 	}
+	[Fact]
+	public void A_budget_too_small_to_spend_stops_rather_than_marking_every_file()
+	{
+		// Emitting a heading and a bare ellipsis per file, with no budget left for any of them,
+		// would make the block grow with the number of files - the one thing the budget prevents.
+		var files = Enumerable.Range(0, 8)
+			.Select(i => new ConventionsFile($"dir{i}/CLAUDE.md", new string('x', 4_000), $"dir{i}"))
+			.ToList();
+
+		var block = new RepoConventions(files).PromptBlock(40);
+
+		Assert.DoesNotContain("###", block);
+		Assert.DoesNotContain("…", block);
+		Assert.Contains("were truncated", block);
+	}
 }

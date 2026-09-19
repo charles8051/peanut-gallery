@@ -67,9 +67,13 @@ when only one could ever apply — no per-file header for an audience of one.
 
 `maxChars` budgets everything that scales with how many files apply: their text, the source list in
 the opening sentence, each file's heading, and the newlines wrapping it. What sits outside the
-budget is fixed text, identical on every turn whatever applies. So a change touching eight subtrees
-renders no longer a block than one touching a single file. The block rides every turn of every
-persona, so that bound is what keeps the feature's cost flat.
+budget is the framing, which is fixed, and the source list, which names every file that applies and
+is therefore bounded by `DefaultMaxScopes` paths. So a change touching eight subtrees renders no
+longer a block than one touching a single file. The block rides every turn of every persona, so
+that bound is what keeps the feature's cost flat.
+
+A budget too small to give a file even one character stops the rendering rather than emitting a
+heading and a bare ellipsis per file, which would grow the block with the file count.
 
 ## Shell changes
 
