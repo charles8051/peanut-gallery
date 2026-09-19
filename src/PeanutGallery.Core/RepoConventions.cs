@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 
@@ -30,13 +31,17 @@ public sealed record ConventionsFile(string Path, string Text, string Scope = ""
 public sealed record RepoConventions(IReadOnlyList<ConventionsFile> Files)
 {
 	/// <summary>
-	/// Snapshotted, not aliased. <see cref="IReadOnlyList{T}"/> is a read-only view rather than an
-	/// immutable collection, so a caller that hands over a <see cref="List{T}"/> and keeps it could
-	/// otherwise change what <see cref="PromptBlock"/> renders after construction. Most core records
-	/// still alias (see issue #56, which decides the convention repo-wide); a new one may as well
-	/// start on the right side of it.
+	/// Snapshotted and wrapped, not aliased. <see cref="IReadOnlyList{T}"/> is a read-only view
+	/// rather than an immutable collection, so three separate routes could otherwise change what
+	/// <see cref="PromptBlock"/> renders after construction: a caller keeping the
+	/// <see cref="List{T}"/> it passed, a caller casting this back to the array behind it, and
+	/// <c>init</c> accepting a fresh alias through <c>with</c>. The copy closes the first, the
+	/// <see cref="ReadOnlyCollection{T}"/> the second, and getter-only the third.
+	///
+	/// <para>Most core records still alias; issue #56 decides that convention repo-wide. A record
+	/// introduced after the question was asked may as well start on the right side of it.</para>
 	/// </summary>
-	public IReadOnlyList<ConventionsFile> Files { get; init; } = [.. Files];
+	public IReadOnlyList<ConventionsFile> Files { get; } = new ReadOnlyCollection<ConventionsFile>([.. Files]);
 
 	/// <summary>The single-file case, which is still the common one.</summary>
 	public RepoConventions(string path, string text) : this([new ConventionsFile(path, text)])

@@ -256,4 +256,15 @@ public class RepoConventionsTests
 		Assert.DoesNotContain("SMUGGLED-RULE", block);
 		Assert.DoesNotContain("REPLACED-RULE", block);
 	}
+[Fact]
+	public void The_exposed_list_cannot_be_cast_back_to_something_mutable()
+	{
+		// IReadOnlyList is a view, not a guarantee: backed directly by an array or a List, a
+		// caller can cast to the concrete type and write through it.
+		var conventions = new RepoConventions([new ConventionsFile("CLAUDE.md", "RULE")]);
+
+		Assert.IsNotType<ConventionsFile[]>(conventions.Files);
+		Assert.IsNotType<List<ConventionsFile>>(conventions.Files);
+		Assert.False(conventions.Files is ICollection<ConventionsFile> { IsReadOnly: false });
+	}
 }
