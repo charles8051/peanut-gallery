@@ -114,4 +114,99 @@ public class RepoConventionsTests
 		Assert.Contains("were truncated", user);
 		Assert.DoesNotContain(new string('x', 10_000), user);
 	}
+	[Fact]
+	public void Every_applicable_file_is_sent_and_named()
+	{
+		var user = UserTurn(new RepoConventions([
+			new ConventionsFile("CLAUDE.md", "REPO-WIDE-RULE"),
+			new ConventionsFile("tests/CLAUDE.md", "SUBTREE-RULE", "tests"),
+		]));
+
+		Assert.Contains("REPO-WIDE-RULE", user);
+		Assert.Contains("SUBTREE-RULE", user);
+		Assert.Contains("`CLAUDE.md`", user);
+		Assert.Contains("`tests/CLAUDE.md`", user);
+	}
+
+	[Fact]
+	public void A_subtree_file_says_which_subtree_it_governs()
+	{
+		// Without this the reviewer reads the test tree's rules as the whole repo's and reports
+		// every production file that breaks them.
+		var user = UserTurn(new RepoConventions([
+			new ConventionsFile("CLAUDE.md", "repo"),
+			new ConventionsFile("tests/CLAUDE.md", "subtree", "tests"),
+		]));
+
+		Assert.Contains("applies to the whole repository", user);
+		Assert.Contains("applies to files under `tests/`", user);
+	}
+
+	[Fact]
+	public void A_single_file_is_rendered_exactly_as_it_was_before()
+	{
+		// The overwhelmingly common case must not grow a per-file header for an audience of one.
+		var user = UserTurn(new RepoConventions("CLAUDE.md", "Functional core, imperative shell."));
+
+		Assert.DoesNotContain("###", user);
+		Assert.DoesNotContain("applies to", user);
+	}
+
+	[Fact]
+	public void The_budget_is_shared_and_the_repo_wide_rules_survive_it()
+	{
+		// Rendered root-first, so a change that blows the budget loses the subtree rules rather
+		// than the contract the whole repo is held to.
+		var conventions = new RepoConventions([
+			new ConventionsFile("CLAUDE.md", "REPO-WIDE-RULE " + new string('r', 2_000)),
+			new ConventionsFile("tests/CLAUDE.md", "SUBTREE-RULE " + new string('s', 20_000), "tests"),
+		]);
+
+		var block = conventions.PromptBlock(6_000);
+
+		Assert.Contains("REPO-WIDE-RULE", block);
+		Assert.Contains(new string('r', 2_000), block);
+		Assert.Contains("SUBTREE-RULE", block);
+		Assert.Contains("were truncated", block);
+		Assert.DoesNotContain(new string('s', 5_000), block);
+	}
+
+	[Fact]
+	public void A_short_file_rolls_its_unused_budget_forward()
+	{
+		// An equal fixed share would truncate the second file at half the budget even though the
+		// first spent almost none of its own.
+		var conventions = new RepoConventions([
+			new ConventionsFile("CLAUDE.md", "short"),
+			new ConventionsFile("tests/CLAUDE.md", new string('s', 5_000), "tests"),
+		]);
+
+		var block = conventions.PromptBlock(6_000);
+
+		Assert.Contains(new string('s', 5_000), block);
+		Assert.DoesNotContain("were truncated", block);
+	}
+
+	[Fact]
+	public void An_empty_file_among_real_ones_is_dropped_entirely()
+	{
+		var user = UserTurn(new RepoConventions([
+			new ConventionsFile("CLAUDE.md", "  "),
+			new ConventionsFile("tests/CLAUDE.md", "SUBTREE-RULE", "tests"),
+		]));
+
+		Assert.Contains("SUBTREE-RULE", user);
+		Assert.DoesNotContain("`CLAUDE.md`", user);
+	}
+
+	[Fact]
+	public void Every_source_is_named_for_the_shell_to_report()
+	{
+		var conventions = new RepoConventions([
+			new ConventionsFile("CLAUDE.md", "repo"),
+			new ConventionsFile("tests/CLAUDE.md", "subtree", "tests"),
+		]);
+
+		Assert.Equal("CLAUDE.md, tests/CLAUDE.md", conventions.Paths);
+	}
 }

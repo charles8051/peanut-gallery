@@ -109,11 +109,12 @@ scope here; the single panel comment is the stepping stone. See [`adr.md`](adr.m
 ## Conventions injection
 
 Auto mode is only as good as what the orchestrator knows about the house. On PR-open the
-shell reads a conventions file from the **head ref** — `.github/copilot-instructions.md`
-if present, else the repo's `CLAUDE.md`/`AGENTS.md` — and feeds it to both the orchestrator
+shell reads the conventions files from the **head ref** — the repo-wide one at the root, plus
+the nearest one above each directory the change touches — and feeds them to both the orchestrator
 (so it constructs house-aware personas, e.g. a "functional-core violation" persona when it
 sees state/IO/timing fused) and the reviewers themselves. This is independently valuable and
 also improves the fixed-panel path; it is specced here because auto mode depends on it.
+Discovery is [`feature-specs/repo-conventions/spec.md`](../repo-conventions/spec.md).
 
 ## Requirements
 - [ ] A `panel` config field selects `fixed` (today's behavior, default), `auto`, or `seed+auto`.
