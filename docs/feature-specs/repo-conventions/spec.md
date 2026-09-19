@@ -67,17 +67,23 @@ when only one could ever apply — no per-file header for an audience of one.
 
 `maxChars` budgets everything that scales with how many files apply: their text, the source list in
 the opening sentence, each file's heading, and the newlines wrapping it. The only thing outside the
-budget is the framing, which is fixed text on every turn whatever applies. So a change touching
-eight subtrees renders no longer a block than one touching a single file — the source list costs
-more, and the text it leaves room for shrinks to match. The block rides every turn of every
-persona, so that bound is what keeps the feature's cost flat.
+budget is the framing, which is fixed text on every turn whatever applies. The bound, exactly:
 
-A budget too small to give a file even one character stops the rendering rather than emitting a
-heading and a bare ellipsis per file, which would grow the block with the file count. The source
-list is the one charge that is still emitted when it cannot be paid for: a list that omitted a
-source would make the prompt misdescribe itself. Below that point the block is framing, sources and
-the truncation note, bounded by the `DefaultMaxScopes` cap on how many files can apply rather than
-by `maxChars`.
+> **While `maxChars` covers the source list**, the rendered block is at most the framing plus
+> `maxChars` plus the truncation note, whatever the file count. A longer source list does not add
+> characters; it displaces text, which is charged from the same budget.
+
+So a change touching eight subtrees renders no longer a block than one touching a single file. The
+block rides every turn of every persona, so that bound is what keeps the feature's cost flat.
+
+Two things happen below that point. A budget too small to give a file even one character stops the
+rendering rather than emitting a heading and a bare ellipsis per file, which would grow the block
+with the file count. And the source list, alone among the charges, is still emitted when it cannot
+be paid for at all — a list that omitted a source would make the prompt misdescribe itself. So at a
+budget smaller than the source list the block does grow with the file count, up to the
+`DefaultMaxScopes` cap on how many files can apply. That is a bound of nine paths, not of
+`maxChars`. No configured budget is near it: `DefaultMaxChars` is 6000 and nine paths are a few
+hundred characters.
 
 ## Shell changes
 

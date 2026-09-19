@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using PeanutGallery.Core;
 using Xunit;
@@ -239,5 +240,20 @@ public class RepoConventionsTests
 		Assert.DoesNotContain("###", block);
 		Assert.DoesNotContain("…", block);
 		Assert.Contains("were truncated", block);
+	}
+[Fact]
+	public void Mutating_the_list_after_construction_cannot_change_what_is_rendered()
+	{
+		var files = new List<ConventionsFile> { new("CLAUDE.md", "ORIGINAL-RULE") };
+		var conventions = new RepoConventions(files);
+
+		files.Add(new ConventionsFile("tests/CLAUDE.md", "SMUGGLED-RULE", "tests"));
+		files[0] = new ConventionsFile("CLAUDE.md", "REPLACED-RULE");
+
+		var block = conventions.PromptBlock();
+
+		Assert.Contains("ORIGINAL-RULE", block);
+		Assert.DoesNotContain("SMUGGLED-RULE", block);
+		Assert.DoesNotContain("REPLACED-RULE", block);
 	}
 }

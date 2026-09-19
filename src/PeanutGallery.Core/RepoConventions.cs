@@ -29,6 +29,15 @@ public sealed record ConventionsFile(string Path, string Text, string Scope = ""
 /// </summary>
 public sealed record RepoConventions(IReadOnlyList<ConventionsFile> Files)
 {
+	/// <summary>
+	/// Snapshotted, not aliased. <see cref="IReadOnlyList{T}"/> is a read-only view rather than an
+	/// immutable collection, so a caller that hands over a <see cref="List{T}"/> and keeps it could
+	/// otherwise change what <see cref="PromptBlock"/> renders after construction. Most core records
+	/// still alias (see issue #56, which decides the convention repo-wide); a new one may as well
+	/// start on the right side of it.
+	/// </summary>
+	public IReadOnlyList<ConventionsFile> Files { get; init; } = [.. Files];
+
 	/// <summary>The single-file case, which is still the common one.</summary>
 	public RepoConventions(string path, string text) : this([new ConventionsFile(path, text)])
 	{
@@ -60,10 +69,15 @@ public sealed record RepoConventions(IReadOnlyList<ConventionsFile> Files)
 	/// file even one character stops the rendering rather than emitting a heading and a bare
 	/// ellipsis per file, which would grow the block with the file count - the one thing the budget
 	/// exists to prevent. The only thing OUTSIDE the budget is the framing, which is fixed text on
-	/// every turn whatever applies. The source list is charged but always emitted whole, since a
-	/// list that omitted a source would make the prompt misdescribe itself; a budget too small to
-	/// pay for it therefore renders framing, sources and the note alone, bounded by the
-	/// <see cref="ConventionsDiscovery.DefaultMaxScopes"/> cap on how many files can apply.</para>
+	/// every turn whatever applies.</para>
+	///
+	/// <para>The bound, exactly: while <paramref name="maxChars"/> covers the source list, the block
+	/// is at most the framing plus <paramref name="maxChars"/> plus the note, whatever the file
+	/// count - a longer source list displaces text rather than adding characters. Below that point
+	/// the source list is emitted anyway, alone among the charges, because a list that omitted a
+	/// source would make the prompt misdescribe itself; the block then grows with the file count up
+	/// to the <see cref="ConventionsDiscovery.DefaultMaxScopes"/> cap, which no configured budget
+	/// comes near.</para>
 	/// </summary>
 	public string PromptBlock(int maxChars = DefaultMaxChars)
 	{
