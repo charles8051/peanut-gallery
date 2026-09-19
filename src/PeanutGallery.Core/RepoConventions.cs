@@ -59,9 +59,11 @@ public sealed record RepoConventions(IReadOnlyList<ConventionsFile> Files)
 	/// file behaves exactly as it did when only one could ever apply. A budget too small to give a
 	/// file even one character stops the rendering rather than emitting a heading and a bare
 	/// ellipsis per file, which would grow the block with the file count - the one thing the budget
-	/// exists to prevent. What sits OUTSIDE it is the framing, which is fixed, and the source list,
-	/// which names every file that applies and so is bounded by
-	/// <see cref="ConventionsDiscovery.DefaultMaxScopes"/> paths rather than by this budget.</para>
+	/// exists to prevent. The only thing OUTSIDE the budget is the framing, which is fixed text on
+	/// every turn whatever applies. The source list is charged but always emitted whole, since a
+	/// list that omitted a source would make the prompt misdescribe itself; a budget too small to
+	/// pay for it therefore renders framing, sources and the note alone, bounded by the
+	/// <see cref="ConventionsDiscovery.DefaultMaxScopes"/> cap on how many files can apply.</para>
 	/// </summary>
 	public string PromptBlock(int maxChars = DefaultMaxChars)
 	{
