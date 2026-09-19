@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using PeanutGallery.Core;
 using Xunit;
 
@@ -208,5 +209,20 @@ public class RepoConventionsTests
 		]);
 
 		Assert.Equal("CLAUDE.md, tests/CLAUDE.md", conventions.Paths);
+	}
+	[Fact]
+	public void The_block_does_not_grow_with_the_number_of_files_that_apply()
+	{
+		// The source list and the per-file headings both scale with how many files apply. Left
+		// outside the budget they would let a change touching eight subtrees post a longer block
+		// than one touching a single file, every turn, for as long as the review runs.
+		static ConventionsFile Big(string dir) =>
+			new(dir.Length == 0 ? "CLAUDE.md" : dir + "/CLAUDE.md", new string('x', 4_000), dir);
+
+		var one = new RepoConventions([Big(string.Empty)]).PromptBlock(2_000).Length;
+		var eight = new RepoConventions(
+			Enumerable.Range(0, 8).Select(i => Big($"dir{i}")).ToList()).PromptBlock(2_000).Length;
+
+		Assert.True(eight <= one, $"one={one} eight={eight}");
 	}
 }

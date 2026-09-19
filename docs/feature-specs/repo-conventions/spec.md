@@ -65,6 +65,12 @@ them root-first and spends `maxChars` in order: each file takes an equal share o
 a file shorter than its share rolls the surplus forward. A single file renders exactly as it did
 when only one could ever apply — no per-file header for an audience of one.
 
+`maxChars` budgets everything that scales with how many files apply: their text, the source list in
+the opening sentence, each file's heading, and the newlines wrapping it. What sits outside the
+budget is fixed text, identical on every turn whatever applies. So a change touching eight subtrees
+renders no longer a block than one touching a single file. The block rides every turn of every
+persona, so that bound is what keeps the feature's cost flat.
+
 ## Shell changes
 
 `ConventionsReader.CollectAsync` (Engine) is the fold both shells share, so they cannot drift on
