@@ -4,11 +4,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using PeanutGallery.Core;
+using PeanutGallery.Engine;
 
 namespace PeanutGallery.Desktop.Services;
 
 /// <summary>
-/// Remote counterparts to the CLI's local-checkout readers (<c>Commands.ReadConventions</c> /
+/// Remote counterparts to the CLI's local-checkout readers (<c>Commands.ReadConventionsAsync</c> /
 /// <c>Commands.ReadFileContextAsync</c>): the desktop app reviews a PR it has no working copy
 /// of, so whole-file context (#82) and repo conventions (#87) are read from GitHub at the PR's
 /// head commit instead of the filesystem. Best-effort, like the CLI originals — a file that is
@@ -17,16 +18,6 @@ namespace PeanutGallery.Desktop.Services;
 /// </summary>
 public static class RemoteRepoContext
 {
-    // Mirrors PeanutGallery.Cli.Commands.ConventionsCandidates. Kept local rather than shared
-    // across shells: each shell owns its own IO (ADR-0001), and this is four short strings.
-    private static readonly string[] ConventionsCandidates =
-    [
-        ".github/copilot-instructions.md",
-        ".github/peanut-gallery-instructions.md",
-        "CLAUDE.md",
-        "AGENTS.md",
-    ];
-
     private const int MaxConventionsBytes = 64 * 1024;
 
     /// <summary>
@@ -37,35 +28,39 @@ public static class RemoteRepoContext
     /// </summary>
     private const int MaxContextFileBytes = 512 * 1024;
 
-    /// <summary>The repo's review conventions at <paramref name="headSha"/>, most specific
-    /// candidate first, or null if none apply (missing, empty, oversized, or unreadable).</summary>
-    public static async Task<RepoConventions?> ReadConventionsAsync(
-        GitHubClient gh, string owner, string repo, string headSha, CancellationToken ct)
-    {
-        foreach (var candidate in ConventionsCandidates)
-        {
-            ct.ThrowIfCancellationRequested();
-            byte[]? bytes;
-            try
-            {
-                bytes = await gh.GetFileBytesAsync(owner, repo, candidate, headSha, ct);
-            }
-            catch (GitHubApiException)
-            {
-                continue; // unreadable: try the next candidate rather than sink the review
-            }
+    /// <summary>
+    /// Bound on how many candidate paths are probed. Every probe is a GitHub call, and a wide
+    /// change over deep directories would otherwise spend dozens of them proving that a repo keeps
+    /// its conventions only at the root.
+    /// </summary>
+    private const int MaxConventionsProbes = 24;
 
-            var text = bytes is null ? null : AcceptAsText(bytes, MaxConventionsBytes);
-            if (string.IsNullOrWhiteSpace(text))
+    /// <summary>
+    /// The conventions that govern this change at <paramref name="headSha"/>: the repo-wide file
+    /// at the root, plus the nearest one above each directory <paramref name="changedFiles"/>
+    /// touches. Null when none apply - missing, empty, oversized, or unreadable. Which files win
+    /// is <see cref="ConventionsReader"/>'s decision, shared with the CLI; this owns only the
+    /// fetching.
+    /// </summary>
+    public static Task<RepoConventions?> ReadConventionsAsync(
+        GitHubClient gh, string owner, string repo, string headSha,
+        IEnumerable<string>? changedFiles, CancellationToken ct) =>
+        ConventionsReader.CollectAsync(
+            async (candidate, token) =>
             {
-                continue;
-            }
-
-            return new RepoConventions(candidate, text);
-        }
-
-        return null;
-    }
+                try
+                {
+                    var bytes = await gh.GetFileBytesAsync(owner, repo, candidate, headSha, token);
+                    return bytes is null ? null : AcceptAsText(bytes, MaxConventionsBytes);
+                }
+                catch (GitHubApiException)
+                {
+                    return null; // unreadable: treat as absent rather than sink the review
+                }
+            },
+            changedFiles,
+            MaxConventionsProbes,
+            ct);
 
     /// <summary>
     /// The current text of <paramref name="paths"/> at <paramref name="headSha"/>, for the

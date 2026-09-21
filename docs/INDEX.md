@@ -46,6 +46,7 @@ Templates to copy: [`templates/feature-spec.md`](templates/feature-spec.md),
 | What will the desktop GUI look like / how is it laid out? | [`feature-specs/desktop-gui/spec.md`](feature-specs/desktop-gui/spec.md) (+ `mockups/`) |
 | Where do reviews run, and how does a shell touch a repo's workflow files? | [`adr/0002-review-executors-and-workflow-file-boundary.md`](adr/0002-review-executors-and-workflow-file-boundary.md) |
 | Which prompt channel may untrusted text use, and why is a delimiter not a boundary? | [`adr/0003-prompt-channel-trust-boundary.md`](adr/0003-prompt-channel-trust-boundary.md) |
+| Are a repo's own house rules fed to the reviewers, and how are they found? | [`feature-specs/repo-conventions/spec.md`](feature-specs/repo-conventions/spec.md) |
 | How are personas discovered, scoped, and imported? | [`feature-specs/persona-management/spec.md`](feature-specs/persona-management/spec.md) |
 | How would an orchestrator build a per-PR adversarial panel ("auto" mode)? | [`feature-specs/auto-panel/spec.md`](feature-specs/auto-panel/spec.md) |
 | Is an auto-convened panel actually better than the fixed one? | [`feature-specs/auto-panel/ab-evaluation.md`](feature-specs/auto-panel/ab-evaluation.md) |

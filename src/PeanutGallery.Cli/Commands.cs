@@ -111,10 +111,11 @@ internal static class Commands
 
 		// House rules apply to a one-shot local review too - a developer running `review` on a
 		// checkout should get the same repo-aware feedback CI gives.
-		var localConventions = ReadConventions(config.FindRepo(repo)?.Path);
+		var localConventions = await ReadConventionsAsync(
+			config.FindRepo(repo)?.Path, diff.Files.Select(f => f.Path));
 		if (localConventions is not null)
 		{
-			Console.Error.WriteLine($"applying repo conventions from {localConventions.Path}");
+			Console.Error.WriteLine($"applying repo conventions from {localConventions.Paths}");
 		}
 
 		var tasks = ReviewPlanner.Plan(config, repo, diff, localConventions);
@@ -164,65 +165,61 @@ internal static class Commands
 	/// </summary>
 	private const int MaxContextFileBytes = 512 * 1024;
 
-	/// <summary>
-	/// Where a repo states its review conventions, most specific first. The Copilot file wins when
-	/// present because it is unambiguously written FOR a code reviewer; the agent files are
-	/// broader (build commands, workflow) but still carry the design rules that matter most.
-	/// </summary>
-	private static readonly string[] ConventionsCandidates =
-	[
-		".github/copilot-instructions.md",
-		".github/peanut-gallery-instructions.md",
-		"CLAUDE.md",
-		"AGENTS.md",
-	];
-
 	/// <summary>Hard ceiling on what we will even read; the planner caps what it actually sends.</summary>
 	private const int MaxConventionsBytes = 64 * 1024;
 
 	/// <summary>
-	/// Find the repo's conventions file in the checkout. Best-effort: no file, an unreadable one,
-	/// or an absurdly large one simply means the reviewers run without house rules, exactly as
-	/// they did before. Note the checkout is the PR head on push/pull_request runs, so a PR that
-	/// edits its own conventions takes effect immediately - which is why the prompt frames the
-	/// content as repo-provided data rather than instructions.
+	/// The conventions that govern this change in the checkout: the repo-wide file at the root,
+	/// plus the nearest one above each directory the change touches (see
+	/// <see cref="ConventionsDiscovery"/> for why the root alone was not enough). Best-effort: no
+	/// file, an unreadable one, or an absurdly large one simply means the reviewers run without
+	/// house rules, exactly as they did before. Note the checkout is the PR head on push/pull_request
+	/// runs, so a PR that edits its own conventions takes effect immediately - which is why the
+	/// prompt frames the content as repo-provided data rather than instructions.
+	///
+	/// <para>Unbounded probes: each one is a local file stat, not a round trip.</para>
 	/// </summary>
-	private static RepoConventions? ReadConventions(string? repoRoot)
+	private static Task<RepoConventions?> ReadConventionsAsync(
+		string? repoRoot, IEnumerable<string>? changedFiles)
 	{
 		if (string.IsNullOrWhiteSpace(repoRoot) || !Directory.Exists(repoRoot))
 		{
-			return null;
+			return Task.FromResult<RepoConventions?>(null);
 		}
 
 		var root = Path.GetFullPath(repoRoot);
-		foreach (var candidate in ConventionsCandidates)
+		return ConventionsReader.CollectAsync(
+			(candidate, _) => Task.FromResult(ReadConventionsFile(root, candidate)), changedFiles);
+	}
+
+	/// <summary>
+	/// One conventions file's text, or null when it is missing, empty, oversized, unreadable, or
+	/// resolves outside the repo. Containment is checked the same way <see cref="ReadFileContextAsync"/>
+	/// checks it: the candidate path is derived from diff paths, which are attacker-controlled on
+	/// any PR.
+	/// </summary>
+	private static string? ReadConventionsFile(string root, string candidate)
+	{
+		try
 		{
-			try
+			var full = Path.GetFullPath(Path.Combine(root, candidate));
+			if (!FileSystemSafety.ResolvesInsideRoot(root, full) || !File.Exists(full))
 			{
-				var full = Path.GetFullPath(Path.Combine(root, candidate));
-				if (!FileSystemSafety.ResolvesInsideRoot(root, full) || !File.Exists(full))
-				{
-					continue;
-				}
-
-				if (new FileInfo(full).Length > MaxConventionsBytes)
-				{
-					continue;
-				}
-
-				var text = File.ReadAllText(full);
-				if (!string.IsNullOrWhiteSpace(text))
-				{
-					return new RepoConventions(candidate, text);
-				}
+				return null;
 			}
-			catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
+
+			if (new FileInfo(full).Length > MaxConventionsBytes)
 			{
-				// Unreadable: try the next candidate rather than sink the review.
+				return null;
 			}
+
+			var text = File.ReadAllText(full);
+			return string.IsNullOrWhiteSpace(text) ? null : text;
 		}
-
-		return null;
+		catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
+		{
+			return null; // unreadable: skip it rather than sink the review
+		}
 	}
 
 	/// <summary>
@@ -771,11 +768,6 @@ internal static class Commands
 		// Opt-in (#130): make a degraded review fail the CI check. Off by default - reviews are
 		// advisory, so a degraded persona is disclosed but the run stays green.
 		var failOnDegraded = ReviewBudget.FailOnDegraded(Environment.GetEnvironmentVariable(ReviewBudget.FailOnDegradedVariable));
-		var conventions = ReadConventions(config.FindRepo(configRepo)?.Path);
-		if (conventions is not null)
-		{
-			Console.Error.WriteLine($"applying repo conventions from {conventions.Path}");
-		}
 
 		// Opt-in provider-side JSON mode. Off by default because it is a per-model gamble
 		// (minimax-m3 returned an empty reply under it); see ChatClientReviewer for the detail.
@@ -873,6 +865,16 @@ internal static class Commands
 			Console.Error.WriteLine(
 				$"[baseline] could not resolve the pull request's cumulative diff ({e.Message}); " +
 				"continued turns lose the #178 baseline and this run has no diff shape");
+		}
+
+		// House rules, read AFTER the cumulative diff because which ones apply depends on what the
+		// change touches: the root file always, plus the nearest one above each changed directory.
+		// A failed baseline costs the subtree rules, never the repo-wide one.
+		var conventions = await ReadConventionsAsync(
+			config.FindRepo(configRepo)?.Path, cumulative?.Files.Select(f => f.Path));
+		if (conventions is not null)
+		{
+			Console.Error.WriteLine($"applying repo conventions from {conventions.Paths}");
 		}
 
 		// The shared review-orchestration fold. Each persona's session advances concurrently

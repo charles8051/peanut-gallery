@@ -75,16 +75,6 @@ public static class ReviewOrchestrator
         var (headSha, baseRef) = await gh.GetPullAnchorAsync(owner, repo, prNumber, ct);
         var existing = await gh.ListIssueCommentsAsync(owner, repo, prNumber, ct);
 
-        // Read at the PR's head, matching what CI reviews: the CLI's local-checkout counterparts
-        // (Commands.cs ReadConventions / ReadFileContextAsync) read the code actually under
-        // review, not the default branch, so the desktop app must too or its review of the same
-        // PR silently differs from CI's (#82, #87).
-        var conventions = await RemoteRepoContext.ReadConventionsAsync(gh, owner, repo, headSha, ct);
-        if (conventions is not null)
-        {
-            log?.Invoke($"applying repo conventions from {conventions.Path}");
-        }
-
         // Shared across every diff-tier persona's context fetch (ReviewRunner calls ContextSource
         // once per persona, and personas fan out concurrently), so a PR reviewed by N personas
         // fetches each changed file's bytes once, not N times. See RemoteRepoContext for why only
@@ -109,6 +99,19 @@ public static class ReviewOrchestrator
         {
             log?.Invoke($"baseline: could not resolve the pull request's cumulative diff ({e.Message}); " +
                 "continued turns review without it");
+        }
+
+        // Read at the PR's head, matching what CI reviews: the CLI's local-checkout counterparts
+        // (Commands.cs ReadConventionsAsync / ReadFileContextAsync) read the code actually under
+        // review, not the default branch, so the desktop app must too or its review of the same
+        // PR silently differs from CI's (#82, #87). After the baseline, because which conventions
+        // apply depends on what the change touches - a failed baseline costs the subtree rules,
+        // never the repo-wide one.
+        var conventions = await RemoteRepoContext.ReadConventionsAsync(
+            gh, owner, repo, headSha, baseline?.Files.Select(f => f.Path), ct);
+        if (conventions is not null)
+        {
+            log?.Invoke($"applying repo conventions from {conventions.Paths}");
         }
 
         var reviewer = reviewerFactory(config);
