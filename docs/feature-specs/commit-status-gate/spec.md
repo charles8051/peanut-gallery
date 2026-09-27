@@ -79,7 +79,20 @@ the verdict leaves the status `pending`, which holds the merge. A 403 names the 
 1. `commit-status: 'true'` on the action step.
 2. `statuses: write` in the workflow's `permissions`.
 3. `"comment": "panel"` in the config (the bundled default already has it).
-4. Add `peanut-gallery` to the branch's required status checks.
+4. A `concurrency` group keyed on the PR number, covering both triggers.
+5. Add `peanut-gallery` to the branch's required status checks.
+
+Every run writes the same context on the same head SHA, and GitHub keeps the latest status
+per context. Two overlapping runs could land out of order, with an older run's verdict
+posted after a newer run's `pending`. The concurrency group rules that out by running one
+review per PR at a time. The panel comment already needs that to keep a single writer, so
+the gate adds no requirement the comment did not have. The gate does not order statuses
+itself.
+
+`action.yml` pins a prebuilt image, and the pin can only name a build of an earlier commit.
+The commit that adds the input therefore pins an image that ignores it. The input takes
+effect from the pin bump after it. Until then a required `peanut-gallery` context never
+appears and the merge stays blocked.
 
 ## Out of scope
 

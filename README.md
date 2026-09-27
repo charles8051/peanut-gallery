@@ -80,6 +80,9 @@ permissions:
   contents: read
   pull-requests: write
   statuses: write
+concurrency:
+  group: peanut-gallery-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
 # ...
       - uses: charles8051/peanut-gallery@<sha>
         with:
@@ -91,6 +94,10 @@ panel reviews, `failure` while findings are open, and `success` only when the wh
 has reported the head commit with nothing on the board. A finding withdrawn in the PR
 conversation clears it too, if the comment trigger above is on. Needs the default
 `"comment": "panel"`. Details: [commit-status gate](docs/feature-specs/commit-status-gate/spec.md).
+
+The concurrency group runs one review per PR at a time. Without it, an older run can finish
+after a newer one started and overwrite the newer run's status. The input first ships in the
+release after v0.1.1.
 
 ## The default panel
 
