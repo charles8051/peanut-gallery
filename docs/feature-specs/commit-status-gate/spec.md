@@ -100,7 +100,13 @@ appears and the merge stays blocked.
   push or comment.
 - A job killed by its `timeout-minutes` leaves the status `pending`. Re-running the job
   settles it.
-- Fork PRs get no status: their token cannot write one, and they are not reviewed.
+- Fork PRs get no status: their token cannot write one, and they are not reviewed. With the
+  context required, a fork PR merges only by admin bypass.
+- The gate does not stop authors with push access. On `pull_request`, a same-repo PR runs
+  its own copy of the workflow, including its `permissions:` block. It can post any status
+  it likes, just as it can make `test` pass by editing the build. Review of the PR is the
+  boundary against a write-access author. The gate reports on that review and does not
+  replace it.
 
 ## Related
 | Type | Link |
