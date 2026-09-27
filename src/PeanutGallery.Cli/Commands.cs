@@ -511,6 +511,9 @@ internal static class Commands
 			return ExitReviewFailed;
 		}
 
+		// The exit code is the verdict the commit-status gate also posts (ReviewGate), so an agent's
+		// wait and a repo's merge gate cannot disagree about what a clean review is.
+		var verdict = r.Verdict;
 		if (r.Arrival is PanelArrival.NoReviewers)
 		{
 			Console.Error.WriteLine(
@@ -519,7 +522,7 @@ internal static class Commands
 			return ExitReviewFailed;
 		}
 
-		if (!r.Landed)
+		if (verdict is ReviewVerdict.NotLanded)
 		{
 			Console.Error.WriteLine(
 				$"the review job succeeded but no panel comment reports {Sha.Short(headSha)} "
@@ -533,27 +536,27 @@ internal static class Commands
 		var degraded = r.Degraded > 0 ? $", {r.Degraded} reviewer(s) did not report" : string.Empty;
 		Console.Error.WriteLine($"panel landed for {Sha.Short(headSha)} at turn {r.Turn}{who}{degraded}.");
 
-		if (r.HasFindings)
+		switch (verdict)
 		{
-			Console.Error.WriteLine(
-				"findings above. Address every one with a fix or with a refutation posted on the PR — "
-				+ "silence does not close a finding.");
-			return ExitFindings;
-		}
+			case ReviewVerdict.Findings:
+				Console.Error.WriteLine(
+					"findings above. Address every one with a fix or with a refutation posted on the PR — "
+					+ "silence does not close a finding.");
+				return ExitFindings;
 
-		// An empty board is only a clean review if the whole panel was there to fill it. A reviewer
-		// that timed out found nothing in the same sense that a closed eye sees nothing, and #130
-		// exists because that shape used to read as green. Non-zero, and named.
-		if (!r.Complete)
-		{
-			Console.Error.WriteLine(
-				"no findings — but this panel is incomplete, so that is not a clean review. "
-				+ "Re-run the review, or read the 'Did not report' line above and decide knowingly.");
-			return ExitReviewFailed;
-		}
+			// An empty board is only a clean review if the whole panel was there to fill it. A reviewer
+			// that timed out found nothing in the same sense that a closed eye sees nothing, and #130
+			// exists because that shape used to read as green. Non-zero, and named.
+			case ReviewVerdict.Incomplete:
+				Console.Error.WriteLine(
+					"no findings — but this panel is incomplete, so that is not a clean review. "
+					+ "Re-run the review, or read the 'Did not report' line above and decide knowingly.");
+				return ExitReviewFailed;
 
-		Console.Error.WriteLine("no findings.");
-		return 0;
+			default:
+				Console.Error.WriteLine("no findings.");
+				return 0;
+		}
 	}
 
 	// On the way out, say whether the commit we waited on is still the head. A push that landed
@@ -629,6 +632,10 @@ internal static class Commands
 		var preview = a.Flag("preview");
 		var offlineDiff = a.Get("diff");
 		var eventJson = ReadEventJson(); // the run's event payload, read once and reused below
+
+		// Opt-in commit status on the head (ReviewGate). Only a run that posts can set one.
+		var gate = ReviewGate.Enabled(Environment.GetEnvironmentVariable(ReviewGate.Variable))
+			&& !dryRun && !preview && offlineDiff is null;
 
 		// Action-owned safety gate #1: refuse a comment-triggered run from a bot or an
 		// untrusted author, regardless of the consumer workflow's `if:`.
@@ -732,6 +739,11 @@ internal static class Commands
 			if (skip)
 			{
 				Console.Error.WriteLine($"skipping review of PR #{pr}: {skipReason}.");
+				if (gate)
+				{
+					await SetGateAsync(gh, owner, repoSlug, headSha, ReviewGate.Skipped(skipReason!, pull.IsDraft));
+				}
+
 				return 0;
 			}
 
@@ -747,6 +759,14 @@ internal static class Commands
 			{
 				Console.Error.WriteLine($"superseded: {supersededReason}; skipping (a newer run reviews the current head).");
 				return 0;
+			}
+
+			// Before any model call, so a missing `statuses: write` fails the run before it spends
+			// anything. A fork refusal and a supersession above post nothing: a fork PR's token
+			// cannot write a status, and a superseded SHA is no longer the one a merge would take.
+			if (gate)
+			{
+				await SetGateAsync(gh, owner, repoSlug, headSha, ReviewGate.Reviewing(headSha));
 			}
 
 			existing = await gh.ListIssueCommentsAsync(owner, repoSlug, pr);
@@ -958,6 +978,14 @@ internal static class Commands
 
 		Console.WriteLine($"{owner}/{repoSlug}#{pr} @ {Sha.Short(headSha)}: {created} new, {updated} updated, {skipped} unchanged");
 
+		// Only after the panel comment is on the PR: the status must not report a verdict the
+		// thread does not show yet. A throw anywhere above leaves it pending, which holds the merge.
+		if (gate)
+		{
+			await SetGateAsync(gh, owner, repoSlug, headSha,
+				ReviewGate.After(config.Comment ?? CommentMode.PerPersona, run.PanelBody, headSha));
+		}
+
 		// The gate is deliberately the FINAL statement, and every side effect the opt-in promise
 		// covers has already run ABOVE it, in order: the Job Summary + ::warning:: annotations in
 		// EmitActionsObservability (called near the top of the post path, before the dry-run return,
@@ -979,6 +1007,23 @@ internal static class Commands
 	/// <summary>Exit code when the opt-in <c>PG_FAIL_ON_DEGRADED</c> gate trips (#130). Distinct from
 	/// a <see cref="CliError"/>'s 1 so a degraded-but-posted review reads apart from a real failure.</summary>
 	private const int DegradedExitCode = 3;
+
+	private static async Task SetGateAsync(GitHubClient gh, string owner, string repo, string sha, CommitStatus status)
+	{
+		await gh.SetCommitStatusAsync(owner, repo, sha, ReviewGate.Context, status, RunUrl());
+		Console.Error.WriteLine($"[gate] {ReviewGate.Context} on {Sha.Short(sha)}: {status.State} - {status.Description}");
+	}
+
+	// The status's "Details" link: this run's page. Null outside GitHub Actions.
+	private static string? RunUrl()
+	{
+		var server = Environment.GetEnvironmentVariable("GITHUB_SERVER_URL");
+		var repo = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY");
+		var run = Environment.GetEnvironmentVariable("GITHUB_RUN_ID");
+		return string.IsNullOrEmpty(server) || string.IsNullOrEmpty(repo) || string.IsNullOrEmpty(run)
+			? null
+			: $"{server}/{repo}/actions/runs/{run}";
+	}
 
 	// Write the run's Job Summary (durable, per-run) and print a ::warning:: annotation per degraded
 	// persona. No-op outside GitHub Actions so local/offline runs stay quiet. Best-effort: a summary

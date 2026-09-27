@@ -38,6 +38,7 @@ Templates to copy: [`templates/feature-spec.md`](templates/feature-spec.md),
 | Does telling a turn what its own branch introduced stop the false breaking-change finding — and does it hide real ones? | [`feature-specs/pr-own-baseline/ab-pr-own-baseline.md`](feature-specs/pr-own-baseline/ab-pr-own-baseline.md) |
 | How do we know how the panel is performing over time (flake/refute/cost)? | [`feature-specs/run-metrics/spec.md`](feature-specs/run-metrics/spec.md) |
 | How does a degraded (partial) review become visible at decision time / block a gate? | [`feature-specs/degraded-panel-visibility/spec.md`](feature-specs/degraded-panel-visibility/spec.md) |
+| How does a review hold auto-merge until it is clean? | [`feature-specs/commit-status-gate/spec.md`](feature-specs/commit-status-gate/spec.md) |
 | How do I wait for a PR's review to land, and know it is THIS push's? | [`feature-specs/await-review/spec.md`](feature-specs/await-review/spec.md) |
 | How long may a review run, and how is the reasoning-runaway flake bounded? | [`feature-specs/review-budget/spec.md`](feature-specs/review-budget/spec.md) |
 | Do reviewers respond to author comments? | [`feature-specs/conversational-reviewer/spec.md`](feature-specs/conversational-reviewer/spec.md) |

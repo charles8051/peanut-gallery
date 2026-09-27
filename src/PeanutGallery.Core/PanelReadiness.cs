@@ -32,6 +32,26 @@ public enum PanelArrival
 }
 
 /// <summary>
+/// What a settled panel says about the commit, as a caller acts on it. <c>await-review</c>'s exit
+/// code and the commit-status gate both read this one value, so the two cannot disagree about what
+/// a clean review is.
+/// </summary>
+public enum ReviewVerdict
+{
+	/// <summary>The whole panel reported this commit and the board is empty.</summary>
+	Clean,
+
+	/// <summary>The panel reported this commit and the board carries findings to address.</summary>
+	Findings,
+
+	/// <summary>The board is empty but a reviewer did not report, so the empty board proves nothing.</summary>
+	Incomplete,
+
+	/// <summary>No panel comment speaks for this commit: absent, unreadable, or a previous turn's.</summary>
+	NotLanded,
+}
+
+/// <summary>
 /// Reads the one question a caller waiting on a review actually has: does the panel comment now on
 /// this PR describe the commit I just pushed, or the one before it?
 ///
@@ -93,6 +113,17 @@ public sealed record PanelReadiness(
 	/// indistinguishable from one that found nothing.
 	/// </summary>
 	public bool Complete => Arrival is PanelArrival.Fresh && Degraded == 0;
+
+	/// <summary>
+	/// The verdict. Findings outrank incompleteness: a partial panel that still found something has
+	/// given the author work to do, and that is the more useful thing to report.
+	/// </summary>
+	public ReviewVerdict Verdict =>
+		Arrival is PanelArrival.NoReviewers ? ReviewVerdict.Incomplete
+		: !Landed ? ReviewVerdict.NotLanded
+		: HasFindings ? ReviewVerdict.Findings
+		: Complete ? ReviewVerdict.Clean
+		: ReviewVerdict.Incomplete;
 
 	public static PanelReadiness Read(IReadOnlyList<string> commentBodies, string headSha)
 	{

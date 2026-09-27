@@ -272,6 +272,43 @@ internal sealed class GitHubClient : IDisposable
 		await EnsureOk(resp, "update comment", ct);
 	}
 
+	/// <summary>
+	/// Set a commit status on <paramref name="sha"/>. A 403 is almost always a workflow that did not
+	/// grant <c>statuses: write</c>, so it says that rather than GitHub's generic "not accessible".
+	/// </summary>
+	public async Task SetCommitStatusAsync(
+		string owner, string repo, string sha, string context, CommitStatus status, string? targetUrl, CancellationToken ct = default)
+	{
+		var fields = new Dictionary<string, string>
+		{
+			["state"] = status.State switch
+			{
+				CommitState.Pending => "pending",
+				CommitState.Success => "success",
+				CommitState.Failure => "failure",
+				_ => "error",
+			},
+			["context"] = context,
+			["description"] = status.Description,
+		};
+		if (targetUrl is not null)
+		{
+			fields["target_url"] = targetUrl;
+		}
+
+		var json = new StringContent(JsonSerializer.Serialize(fields), Encoding.UTF8, "application/json");
+		using var resp = await _http.PostAsync($"repos/{owner}/{repo}/statuses/{Uri.EscapeDataString(sha)}", json, ct);
+		if (resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
+		{
+			var detail = await resp.Content.ReadAsStringAsync(ct);
+			throw new CliError(
+				$"GitHub API 403 on set commit status: {detail.Trim()} "
+				+ "(the commit-status gate needs `statuses: write` in the workflow's permissions)");
+		}
+
+		await EnsureOk(resp, "set commit status", ct);
+	}
+
 	private static StringContent JsonBody(string body)
 	{
 		var json = JsonSerializer.Serialize(new Dictionary<string, string> { ["body"] = body });
