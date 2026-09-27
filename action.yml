@@ -87,28 +87,27 @@ runs:
   # own improvements. A deliberate trade, not a side effect to discover later.
   #
   # To rebuild from source instead, revert to 'Dockerfile'.
-  # Built from commit 4f654d4, step 2 of the sequence above. Provenance, from the
-  # metrics-report.yml procedure run on 2026-09-01:
-  #   `docker buildx imagetools inspect :main` -> Digest sha256:85d5a0e6...,
+  # Built from commit d952c33, step 2 of the sequence above. Provenance, from the
+  # metrics-report.yml procedure run on 2026-09-27:
+  #   `docker buildx imagetools inspect :main` -> Digest sha256:5bd96554...,
   #   MediaType application/vnd.oci.image.index.v1+json
-  #   package version 1189169859, created 2026-08-30T23:51:26Z
-  #   tags ["4f654d424c2c4fcf64b9555c9411db757b043b8c", "main"]
+  #   package version 1302490049, created 2026-09-27T21:50:00Z
+  #   tags ["d952c33ec6be57ae48f18a629055f7e4d45f32d1", "main"]
   # Both tags on one version is the check: it is simultaneously what :main resolves to
-  # and the build of 4f654d4, with no second candidate. That commit is "docs: the image
-  # build is path-filtered, and its header said otherwise (#51)", the tip of main, with
-  # build=success and test=success (test-fork and the hosted matrix skip by design on a
-  # push).
+  # and the build of d952c33, with no second candidate. That commit is "feat(gate): a
+  # commit status that can hold auto-merge (#58)", the tip of main, with Build Image and
+  # Build and Test both success on the push.
   #
-  # What this bump actually moves: nothing in the container. Between the previous pin's
-  # build (970ac3d) and 4f654d4, `git diff -- src action Dockerfile action.yml` touches
-  # only action.yml, which the runtime stage does not copy. The three intervening commits
-  # are docs and a workflow comment. The pin is bumped to keep the gap between it and
-  # :main small enough to review, not to ship a behaviour change.
+  # What this bump moves: two behaviour changes. Between the previous pin's build
+  # (4f654d4) and d952c33, `git log -- src action Dockerfile action.yml` names #55
+  # (CLAUDE.md/AGENTS.md found below the repo root, not only at it) and #58 (the
+  # `commit-status` input, which does nothing on any earlier image). #53 in that range
+  # is the previous pin bump.
   #
   # The digest is the INDEX digest (application/vnd.oci.image.index.v1+json), not either
   # per-platform manifest under it. That is what `docker buildx imagetools inspect
   # <tag>` reports as `Digest:`, and what the previous pin used.
-  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:85d5a0e6c384234859d31c75cd77e25a0ed5599d980d606fb550af881d7a02aa'
+  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:5bd9655481c975322909aabc0f4f016a7ab83f1606e57ec549546c7ac4f7407b'
   env:
     GITHUB_TOKEN: ${{ inputs.github-token }}
     OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
