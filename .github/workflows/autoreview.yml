@@ -78,5 +78,6 @@ jobs:
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
           # Posts the `peanut-gallery` status on the PR head, a required check on main. The
           # concurrency group above is what keeps an older run from overwriting a newer
-          # run's status.
+          # run's status. A fork PR never gets one: the job skips it and its token cannot
+          # write a status. So a fork PR merges only by admin bypass, after a human review.
           commit-status: true
