@@ -16,6 +16,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  statuses: write   # the peanut-gallery commit status, required on main
 
 # cancel-in-progress: false (issue #32) — serialize runs in the group instead of killing
 # the older one. Killing it recorded a CANCELLED conclusion that turned the check rollup
@@ -75,3 +76,7 @@ jobs:
           # pr-number is action.yml's default now - it carries the same
           # `pull_request.number || issue.number` fallback this line used to spell out.
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          # Posts the `peanut-gallery` status on the PR head, a required check on main. The
+          # concurrency group above is what keeps an older run from overwriting a newer
+          # run's status.
+          commit-status: true
