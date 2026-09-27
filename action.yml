@@ -40,6 +40,14 @@ inputs:
       Blank lines and #comments are ignored. openrouter-api-key / fireworks-api-key still work.
     required: false
     default: ''
+  commit-status:
+    description: |
+      'true' posts a `peanut-gallery` commit status on the PR head: pending while the panel
+      reviews, failure while findings are open, success when the whole panel reports none.
+      Make that context a required check to hold auto-merge until the review is clean.
+      Needs `statuses: write` in the workflow's permissions, and "comment": "panel" in the config.
+    required: false
+    default: 'false'
 
 runs:
   using: 'docker'
@@ -109,3 +117,4 @@ runs:
     PG_PR_NUMBER: ${{ inputs.pr-number }}
     PG_PROVIDER_KEYS: ${{ inputs.provider-keys }}
     PG_CONFIG: ${{ inputs.config }}
+    PG_COMMIT_STATUS: ${{ inputs.commit-status }}

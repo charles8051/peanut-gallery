@@ -41,7 +41,7 @@ around the diff rather than seeing the patch alone.
 
 ### Opt-ins
 
-Neither of these is needed for a working review.
+None of these is needed for a working review.
 
 **Talk back to the panel.** Add the comment trigger, and a reply explaining that a
 finding is intentional gets it withdrawn:
@@ -71,6 +71,33 @@ jobs:
 
 Cost, not correctness: since v0.1.1 the action refuses a bot comment and skips a comment
 on a plain issue on its own. Worth adding on a busy repository.
+
+**Hold auto-merge until the review is clean.** Auto-merge does not read comments. Turn on
+the commit status and make it a required check:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+concurrency:
+  group: peanut-gallery-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+# ...
+      - uses: charles8051/peanut-gallery@<sha>
+        with:
+          commit-status: true
+```
+
+Then add `peanut-gallery` to the branch's required status checks. It is `pending` while the
+panel reviews, `failure` while findings are open, and `success` only when the whole panel
+has reported the head commit with nothing on the board. A finding withdrawn in the PR
+conversation clears it too, if the comment trigger above is on. Needs the default
+`"comment": "panel"`. Details: [commit-status gate](docs/feature-specs/commit-status-gate/spec.md).
+
+The concurrency group runs one review per PR at a time. Without it, an older run can finish
+after a newer one started and overwrite the newer run's status. The input first ships in the
+release after v0.1.1.
 
 ## The default panel
 
@@ -118,6 +145,7 @@ thread cost nothing.
 | `config` | repo-relative path to a config; omit for the default panel |
 | `pr-number` | defaults to the triggering PR |
 | `github-token` | defaults to the workflow token |
+| `commit-status` | `true` posts the `peanut-gallery` commit status; see [Opt-ins](#opt-ins) |
 
 A config's provider block names only the *environment variable* its key lives in, never
 the key itself. So any OpenAI-compatible provider works through `provider-keys`:

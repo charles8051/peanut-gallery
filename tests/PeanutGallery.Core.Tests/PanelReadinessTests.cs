@@ -208,6 +208,31 @@ public class PanelReadinessTests
 	}
 
 	/// <summary>
+	/// An outage is a review that did not happen, not one still on its way. Reading it as NotLanded
+	/// would send a waiter back to wait on a panel that has already settled.
+	/// </summary>
+	[Fact]
+	public void A_panel_carrying_no_reviewer_is_an_incomplete_verdict()
+	{
+		var body = PanelSessionCodec.Embed(
+			PanelCommentRenderer.Render(new PanelReport([], NoFindings, [], [], 0, []), Head, 1),
+			PanelSession.Empty);
+
+		Assert.Equal(ReviewVerdict.Incomplete, PanelReadiness.Read([body], Head).Verdict);
+	}
+
+	/// <summary>A partial panel that still found something has given the author work: that outranks the gap.</summary>
+	[Fact]
+	public void Findings_on_a_partial_panel_are_a_findings_verdict()
+	{
+		var finding = new AttributedFinding(new Finding(Severity.Major, "a.cs", 12, "real thing", "body"), ["layering"]);
+		var body = Panel(
+			Sessions(("architect", Head), ("bug-hunter", Previous)), Head, new SynthesisResult([finding], 0));
+
+		Assert.Equal(ReviewVerdict.Findings, PanelReadiness.Read([body], Head).Verdict);
+	}
+
+	/// <summary>
 	/// It has still SETTLED, though: nothing is going to advance an outage. A waiter that only
 	/// stopped on Landed would sit out its whole timeout on a review that already finished.
 	/// </summary>

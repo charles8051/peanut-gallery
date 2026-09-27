@@ -160,8 +160,8 @@ so its rendered contract has one writer and one reader.
   author's job, by fix or by refutation.
 - A general-purpose waiter. This is one polling loop with a timeout — no retry policy,
   no backoff schedule, no pluggable predicate.
-- Blocking a merge. That is `PG_FAIL_ON_DEGRADED` (#130) and the branch protection rules,
-  not a CLI a human runs.
+- Blocking a merge. That is the [commit-status gate](../commit-status-gate/spec.md), which
+  posts the same `ReviewVerdict` this command exits on, and `PG_FAIL_ON_DEGRADED` (#130).
 
 ## Related
 
