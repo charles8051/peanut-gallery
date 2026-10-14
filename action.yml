@@ -87,27 +87,26 @@ runs:
   # own improvements. A deliberate trade, not a side effect to discover later.
   #
   # To rebuild from source instead, revert to 'Dockerfile'.
-  # Built from commit d952c33, step 2 of the sequence above. Provenance, from the
-  # metrics-report.yml procedure run on 2026-09-27:
-  #   `docker buildx imagetools inspect :main` -> Digest sha256:5bd96554...,
+  # Built from commit d57751c, step 2 of the sequence above. Provenance, from the
+  # metrics-report.yml procedure run on 2026-10-14:
+  #   `docker buildx imagetools inspect :main` -> Digest sha256:ade4e2d2...,
   #   MediaType application/vnd.oci.image.index.v1+json
-  #   package version 1302490049, created 2026-09-27T21:50:00Z
-  #   tags ["d952c33ec6be57ae48f18a629055f7e4d45f32d1", "main"]
+  #   package version 1387825989, created 2026-10-14T21:20:17Z
+  #   tags ["d57751cdc616001eb057494c7fc7b8986e220252", "main"]
   # Both tags on one version is the check: it is simultaneously what :main resolves to
-  # and the build of d952c33, with no second candidate. That commit is "feat(gate): a
-  # commit status that can hold auto-merge (#58)", the tip of main, with Build Image and
-  # Build and Test both success on the push.
+  # and the build of d57751c, with no second candidate. That commit is "feat(sessions):
+  # continued turns share a cacheable prefix across personas (#61)", the tip of main,
+  # with Build Image and Build and Test both success on the push.
   #
-  # What this bump moves: two behaviour changes. Between the previous pin's build
-  # (4f654d4) and d952c33, `git log -- src action Dockerfile action.yml` names #55
-  # (CLAUDE.md/AGENTS.md found below the repo root, not only at it) and #58 (the
-  # `commit-status` input, which does nothing on any earlier image). #53 in that range
-  # is the previous pin bump.
+  # What this bump moves: one behaviour change. Between the previous pin's build
+  # (d952c33) and d57751c, `git log -- src action Dockerfile action.yml` names #61 (a
+  # continued turn's persona state moves after the shared delta, so personas share a
+  # cacheable prefix). #59 in that range is the previous pin bump.
   #
   # The digest is the INDEX digest (application/vnd.oci.image.index.v1+json), not either
   # per-platform manifest under it. That is what `docker buildx imagetools inspect
   # <tag>` reports as `Digest:`, and what the previous pin used.
-  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:5bd9655481c975322909aabc0f4f016a7ab83f1606e57ec549546c7ac4f7407b'
+  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:ade4e2d220518eb896117869cd0c1b3a5780417902e81cf894793166b4b0dca8'
   env:
     GITHUB_TOKEN: ${{ inputs.github-token }}
     OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
