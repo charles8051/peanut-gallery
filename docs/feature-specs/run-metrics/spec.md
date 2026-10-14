@@ -102,16 +102,59 @@ the cache: two personas over one shared block reported 0% under the old order an
 second call** under the new one.
 
 **How far the invariant reaches.** The cache rests on a run's personas producing a byte-identical
-user block, and that holds **on first turns**, where the builders take no `Persona` at all so the
-compiler enforces it (`PromptAssembly.BuildUserPrompt`, `SessionPlanner.BuildFirstUser`; asserted by
-`Two_personas_on_one_first_turn_produce_a_byte_identical_user_block` in both test classes). It does
-**not** hold in general on continued turns: `BuildContinuedUser` takes the persona's `ReviewSession`
-prior, and the running summary, open findings and dropped titles diverge across personas the moment
-any finding or refutation lands — and they sit *ahead* of the shared delta diff in the block, so the
-prefix splits early. Continued turns therefore keep only the same-persona warmth the verify pass
-already had. Reordering the continued-turn block to put the shared delta first is the obvious
-follow-up; it is deliberately not done here, because whether it is worth the churn depends on the
-first-turn-vs-continued-turn mix in the ledger, which is now measurable.
+prefix. On first turns that prefix is the whole user block. The builders take no `Persona` at all,
+so the compiler enforces it (`PromptAssembly.BuildUserPrompt`, `SessionPlanner.BuildFirstUser`;
+asserted by `Two_personas_on_one_first_turn_produce_a_byte_identical_user_block` in both test
+classes). On continued turns it is everything except the persona's own session.
+`SessionPlanner.BuildContinuedDelta` takes no `ReviewSession`. `ContinuedState` carries the turn
+number, running summary, open findings, dropped titles and the update instruction, and it is
+appended after the conventions, omitted-files and conversation notes. The conversation note is
+shared only while the personas have seen the same comments, which is the usual case. Asserted by
+`Two_personas_on_one_continued_turn_share_everything_before_their_own_review_state`. Mutation-checked
+both ways: the test fails with the session moved back ahead of the delta, and with the turn number
+moved back into the header.
+
+**Continued turns, measured.** Until this change the session state led the continued-turn block,
+ahead of the delta, and the turn number sat in its first line. Personas' prefixes split within the
+first dozen tokens. The fix was deferred until the first-vs-continued mix could be measured. The mix
+comes from frame-flow's ledgers, 2026-08-31 to 2026-10-14: 1,252 runs over 358 PRs, read with
+`peanut-gallery metrics --slug charles8051/frame-flow --since 60 --state all --json`. A persona's
+first ledger row on a PR counts as its first turn and every later reviewed row as continued.
+
+| review path | calls | input tokens | cached |
+| --- | ---: | ---: | ---: |
+| first turns | 1,124 | 25.6M | 59.3% |
+| continued turns | 2,375 | 8.7M | 0.1% |
+
+Reordering pays only where the shared part clears the provider's minimum cacheable prefix: 1,024
+tokens on OpenAI-family models, then 128-token steps. Continued-turn calls are small. Their median
+input is 1,899 tokens, p75 3,246 and p95 11,273. About 740 of those are the persona's own tail
+(system message plus any brief), read directly as `in − cin` on cached first turns. Two estimates of
+the shared part agree:
+
+- **From the ledger.** In each continued run, the smallest persona input, minus its tail and a
+  150-token allowance for the smallest session state, bounds the shared block. It clears 1,024
+  tokens in 291 of the 689 multi-persona continued runs (42%). Summing `(N − 1) × cacheable(shared)`
+  over those runs gives 3.77M tokens, 43% of continued-turn input.
+- **From the diffs.** 40 continued runs were sampled at random and their deltas fetched from the
+  compare API. 11 had no delta: a comment woke the panel on an unchanged head. 11 carried under
+  3.4 KB. 18 carried 3.9 KB or more, about 1.1k tokens and up.
+
+The bound needs one discount. A run's personas start close together, so a later persona can miss a
+prefix an earlier one has not finished writing. First turns realise 88% of the same bound (14.9M of
+16.9M tokens). At that rate the reorder caches about 3.3M more tokens over the window. Continued
+turns go from 0.1% to about 38%, the review path from 44.3% to about 54%, and all input (review plus
+verify, 51.7M tokens) from 59.8% to about 66%. The gain is 6.4% of all input tokens. The turn split
+alone suggested 5M. The difference is the half of continued runs whose delta is too small to cache.
+
+The change is a reorder inside one pure builder, so it was made. A repository with a conventions
+block gains more than frame-flow's figures show, because that block (up to 6,000 characters) now
+sits in the shared prefix on every continued turn and lifts a small delta over the floor.
+
+Two things are not verified here. No direct provider probe was run, unlike the first-turn reorder;
+the mechanism is the same prefix match. And the model now reads its own summary and findings after
+the delta rather than before it. The next ledger read after consuming repositories take a release
+answers both: `cache%` on continued turns for the first, `refute%` and `agree%` for the second.
 
 **What the second read found: `MalformedResponse` (#158).** A week's ledgers across two production
 repositories showed a 1.7% degrade rate whose `Other` bucket was 28 of 32 the *same* failure — an
