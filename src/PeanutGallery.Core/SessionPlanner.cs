@@ -20,6 +20,12 @@ namespace PeanutGallery.Core;
 /// hits across 1.14M review-path input tokens, measured, while the verify pass (which re-sends its
 /// own prefix seconds later) sat at 95.5%.</para>
 ///
+/// <para>The same rule orders the user block itself on a continued turn. The persona's own session
+/// (turn number, running summary, open findings, dropped titles) diverges across personas as soon as
+/// any finding lands, so it goes LAST, after the delta and every shared note. It used to lead the
+/// block, ahead of the delta, and continued turns cached 0.1% of 8.7M input tokens against 59.3% on
+/// first turns over the same six weeks of one repository's runs.</para>
+///
 /// <para>The diff stays in the USER turn, where it has always been. Moving it into the system
 /// message would make the prefix shared too, but repo-derived text must never hold the
 /// highest-authority position in the prompt — see <see cref="ConventionsNote"/>. Reordering the
@@ -81,13 +87,15 @@ public static class SessionPlanner
 		var system = new Message(ChatRole.System, BuildSystem(persona));
 		var userText = (prior.IsFirstTurn
 			? BuildFirstUser(repo, delta, headSha, intent)
-			: BuildContinuedUser(repo, prior, delta, headSha, own))
+			: BuildContinuedDelta(repo, delta, headSha, own))
 			+ ConventionsNote(conventions)
 			+ ContextNote(context)
 			+ OmittedNote(omitted)
-			+ ConversationNote(comments);
-		// User first, system last: see the type doc. The user block is built without access to the
-		// persona at all, which is what makes it byte-identical across a run's personas.
+			+ ConversationNote(comments)
+			+ (prior.IsFirstTurn ? string.Empty : ContinuedState(prior));
+		// User first, system last: see the type doc. Everything before ContinuedState is built
+		// without access to the persona or its session, which is what makes it byte-identical across
+		// a run's personas: the whole user block on a first turn, all but its tail on a continued one.
 		//
 		// A convened persona's brief slots BETWEEN them. It is per-persona, so it cannot join the
 		// shared block, and it is model-written and diff-derived, so it cannot join the system
@@ -466,8 +474,9 @@ public static class SessionPlanner
 	}
 
 	// Takes no Persona, deliberately: the compiler then guarantees what the prefix cache depends on,
-	// namely that every persona in a run produces a byte-identical user block. Same for the
-	// continued-turn builder below (whose per-persona divergence comes from `prior`, not the persona).
+	// namely that every persona in a run produces a byte-identical user block. The continued-turn
+	// builder below takes no ReviewSession either, for the same reason one step further: a
+	// session is per-persona, so none of it may reach the shared half of the block.
 	private static string BuildFirstUser(
 		RepoTarget repo, Diff diff, string headSha, PullRequestIntent? intent)
 	{
@@ -480,12 +489,38 @@ public static class SessionPlanner
 		return sb.ToString();
 	}
 
-	private static string BuildContinuedUser(
-		RepoTarget repo, ReviewSession prior, Diff delta, string headSha, OwnRemovals? own)
+	// The shared half of a continued turn: the delta and what this PR's own branch removed in it.
+	// The turn number is NOT here. A persona that joined the panel later, or failed a turn, is on a
+	// different turn of the same push, and a digit in the header would split the prefix in its
+	// first line.
+	private static string BuildContinuedDelta(
+		RepoTarget repo, Diff delta, string headSha, OwnRemovals? own)
 	{
 		var sb = new StringBuilder();
-		sb.Append("You are continuing your review of '").Append(repo.Name)
-			.Append("' — turn ").Append(prior.Turn + 1).Append(".\n\n");
+		sb.Append("You are continuing your review of '").Append(repo.Name).Append("'.\n\n");
+		if (delta.IsEmpty)
+		{
+			sb.Append("No file changes were detected since your last review (through commit ")
+				.Append(Sha.Short(headSha)).Append("); re-evaluate your open findings and update if warranted.\n");
+		}
+		else
+		{
+			AppendChangedFiles(sb, delta);
+			sb.Append("Changes since your last review (through commit ").Append(Sha.Short(headSha)).Append("):\n\n")
+				.Append(delta.Raw).Append('\n');
+		}
+
+		AppendOwnRemovals(sb, own);
+		return sb.ToString();
+	}
+
+	// The persona's own half of a continued turn, and the end of the user block. Summary, findings
+	// and dropped titles are this persona's alone, so they follow every shared note rather than
+	// leading the block; the instruction that acts on them stays directly after them.
+	private static string ContinuedState(ReviewSession prior)
+	{
+		var sb = new StringBuilder("\n\n");
+		sb.Append("This is turn ").Append(prior.Turn + 1).Append(" of your review.\n\n");
 
 		sb.Append("Your running summary so far:\n").Append(
 			string.IsNullOrWhiteSpace(prior.Summary) ? "(none)" : prior.Summary).Append("\n\n");
@@ -516,21 +551,6 @@ public static class SessionPlanner
 		}
 
 		AppendDropped(sb, prior.DroppedTitles);
-
-		sb.Append('\n');
-		if (delta.IsEmpty)
-		{
-			sb.Append("No file changes were detected since your last review (through commit ")
-				.Append(Sha.Short(headSha)).Append("); re-evaluate your open findings and update if warranted.\n");
-		}
-		else
-		{
-			AppendChangedFiles(sb, delta);
-			sb.Append("Changes since your last review (through commit ").Append(Sha.Short(headSha)).Append("):\n\n")
-				.Append(delta.Raw).Append('\n');
-		}
-
-		AppendOwnRemovals(sb, own);
 
 		sb.Append("\nUpdate your review: move any now-fixed findings into 'resolved', re-list the still-open ")
 			.Append("set in 'findings' (add new ones), and refresh 'summary'.");

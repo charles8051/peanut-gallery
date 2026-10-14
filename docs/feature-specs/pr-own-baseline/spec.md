@@ -96,7 +96,7 @@ hole the other leaves open, and a conjunction can only drop claims:
 
 ### The statement: one block in the continued-turn prompt
 
-`SessionPlanner.BuildContinuedUser` appends, after the delta and before the update instruction:
+`SessionPlanner.BuildContinuedDelta` appends, after the delta and before the update instruction:
 
 ```
 These lines, removed in the changes above, were added by an EARLIER TURN of this same pull
