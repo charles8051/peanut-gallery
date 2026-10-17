@@ -12,19 +12,23 @@ namespace PeanutGallery.Core;
 /// reasons incrementally.
 ///
 /// <para><b>Message order is a caching decision.</b> The persona-independent block (the diff and
-/// everything derived from the PR) is emitted FIRST and the persona's own system message LAST, so
-/// every persona in a run shares one long, byte-identical prompt prefix and the provider's
-/// automatic prefix cache serves all but the first of them. The reverse order — the intuitive one,
+/// everything derived from the PR) is emitted FIRST, as a message of its own, and the persona's own
+/// system message LAST, so every persona in a run opens with one long, byte-identical message and
+/// the provider's cache serves all but the first of them. The reverse order — the intuitive one,
 /// and what this planner did until the run ledgers were read — puts persona-specific text at
 /// token zero, so N personas produce N distinct prefixes and the cache never fires: 0.0% cache
 /// hits across 1.14M review-path input tokens, measured, while the verify pass (which re-sends its
 /// own prefix seconds later) sat at 95.5%.</para>
 ///
-/// <para>The same rule orders the user block itself on a continued turn. The persona's own session
-/// (turn number, running summary, open findings, dropped titles) diverges across personas as soon as
-/// any finding lands, so it goes LAST, after the delta and every shared note. It used to lead the
-/// block, ahead of the delta, and continued turns cached 0.1% of 8.7M input tokens against 59.3% on
-/// first turns over the same six weeks of one repository's runs.</para>
+/// <para>The cache reuses WHOLE messages, not arbitrary prefixes: a later request reuses an earlier
+/// one's leading messages where they match byte for byte, and never the earlier request's final
+/// message. That is inferred from the run ledgers, not documented by the provider. Cached counts
+/// fall on message boundaries and almost never on the 128-token steps of a prefix cache. So anything
+/// per-persona needs a message of its own after the shared one. On a continued turn that is the
+/// persona's session (turn number, running summary, open findings, dropped titles), which diverges
+/// across personas as soon as any finding lands. #61 moved it after the delta but kept it at the end
+/// of the shared message, which left that message different per persona as a whole, and continued
+/// turns still cached 0.0%.</para>
 ///
 /// <para>The diff stays in the USER turn, where it has always been. Moving it into the system
 /// message would make the prefix shared too, but repo-derived text must never hold the
@@ -84,27 +88,34 @@ public static class SessionPlanner
 		PullRequestIntent? intent = null, ContextSelection? context = null,
 		RepoConventions? conventions = null, OwnRemovals? own = null)
 	{
-		var system = new Message(ChatRole.System, BuildSystem(persona));
-		var userText = (prior.IsFirstTurn
+		// Shared first, system last: see the type doc. The shared message is built without access to
+		// the persona or its session, which is what makes it byte-identical across a run's personas.
+		var shared = new Message(ChatRole.User, (prior.IsFirstTurn
 			? BuildFirstUser(repo, delta, headSha, intent)
 			: BuildContinuedDelta(repo, delta, headSha, own))
 			+ ConventionsNote(conventions)
 			+ ContextNote(context)
 			+ OmittedNote(omitted)
-			+ ConversationNote(comments)
-			+ (prior.IsFirstTurn ? string.Empty : ContinuedState(prior));
-		// User first, system last: see the type doc. Everything before ContinuedState is built
-		// without access to the persona or its session, which is what makes it byte-identical across
-		// a run's personas: the whole user block on a first turn, all but its tail on a continued one.
-		//
-		// A convened persona's brief slots BETWEEN them. It is per-persona, so it cannot join the
-		// shared block, and it is model-written and diff-derived, so it cannot join the system
-		// message - the two constraints leave exactly one seat. The shared prefix still starts at
-		// token zero and the doctrine still ends the prompt; only a persona with a brief gets a
-		// third message at all.
-		var user = new Message(ChatRole.User, userText);
-		var brief = PersonaPrompt.BriefMessage(persona);
-		Message[] messages = brief is null ? [user, system] : [user, brief, system];
+			+ ConversationNote(comments));
+		var messages = new List<Message> { shared };
+
+		// Everything per-persona follows as a message of its own, never appended to the shared one:
+		// the cache reuses whole messages, so one persona-specific line at the end of the shared
+		// message makes the entire message a miss. A continued turn's review state comes first.
+		if (!prior.IsFirstTurn)
+		{
+			messages.Add(new Message(ChatRole.User, ContinuedState(prior)));
+		}
+
+		// A convened persona's brief comes next. It is per-persona, so it cannot join the shared
+		// message, and it is model-written and diff-derived, so it cannot join the system message.
+		// Only a persona with a brief gets this message at all.
+		if (PersonaPrompt.BriefMessage(persona) is { } brief)
+		{
+			messages.Add(brief);
+		}
+
+		messages.Add(new Message(ChatRole.System, BuildSystem(persona)));
 		return new ReviewRequest(persona.Model, persona.SamplingTemperature(), persona.Tier,
 			messages, persona.TopP, persona.TopK);
 	}
@@ -514,12 +525,12 @@ public static class SessionPlanner
 		return sb.ToString();
 	}
 
-	// The persona's own half of a continued turn, and the end of the user block. Summary, findings
-	// and dropped titles are this persona's alone, so they follow every shared note rather than
-	// leading the block; the instruction that acts on them stays directly after them.
+	// The persona's own half of a continued turn, sent as its own user message after the shared
+	// one. Summary, findings and dropped titles are this persona's alone; the instruction that acts
+	// on them stays directly after them.
 	private static string ContinuedState(ReviewSession prior)
 	{
-		var sb = new StringBuilder("\n\n");
+		var sb = new StringBuilder();
 		sb.Append("This is turn ").Append(prior.Turn + 1).Append(" of your review.\n\n");
 
 		sb.Append("Your running summary so far:\n").Append(

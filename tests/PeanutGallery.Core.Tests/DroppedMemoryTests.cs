@@ -146,7 +146,7 @@ public class DroppedMemoryTests
 	{
 		var prior = new ReviewSession("old", 1, "running", [], 0, ["stylistic nit"]);
 
-		var user = Msg.User(SessionPlanner.Advance(
+		var user = Msg.State(SessionPlanner.Advance(
 			TestData.BugHunter, Repo, prior, Diff.Empty, "newsha"));
 
 		Assert.Contains("You already dropped these findings", user);
@@ -160,7 +160,7 @@ public class DroppedMemoryTests
 	{
 		var prior = new ReviewSession("old", 1, "running", []);
 
-		var user = Msg.User(SessionPlanner.Advance(
+		var user = Msg.State(SessionPlanner.Advance(
 			TestData.BugHunter, Repo, prior, Diff.Empty, "newsha"));
 
 		Assert.DoesNotContain("You already dropped these findings", user);
