@@ -91,8 +91,8 @@ public class DroppedMemoryWiringTests
         await ReviewRunner.RunAsync(
             new ReviewRunRequest(Config(), Repo, "sha1", existing, Delta, reviewer));
 
-        Assert.Contains("previously refuted", Msg.User(reviewer.FirstRequest!));
-        Assert.Contains("Do NOT raise them again", Msg.User(reviewer.FirstRequest));
+        Assert.Contains("previously refuted", Msg.State(reviewer.FirstRequest!));
+        Assert.Contains("Do NOT raise them again", Msg.State(reviewer.FirstRequest));
     }
 
     private sealed class ScriptedReviewer(params string[] replies) : IReviewer

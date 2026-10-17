@@ -100,11 +100,11 @@ public class SessionTests
 		var req = SessionPlanner.Advance(
 			TestData.BugHunter, Repo, prior, Diff.Parse("diff --git a/y b/y\n+z\n"), "new5678");
 
-		var user = Msg.User(req);
-		Assert.Contains("continuing", user);
-		Assert.Contains("turn 2", user);
-		Assert.Contains("prev summary", user);
-		Assert.Contains("open thing", user);   // prior finding carried forward
+		Assert.Contains("continuing", Msg.User(req));
+		var state = Msg.State(req);
+		Assert.Contains("turn 2", state);
+		Assert.Contains("prev summary", state);
+		Assert.Contains("open thing", state);   // prior finding carried forward
 	}
 
 	// ---- #178: the continued turn is TOLD what its own branch introduced ----
@@ -251,10 +251,13 @@ public class SessionTests
 	[Fact]
 	public void The_persona_independent_block_comes_first_so_a_runs_personas_share_a_prefix()
 	{
-		var req = SessionPlanner.Advance(TestData.BugHunter, Repo, ReviewSession.Initial, Diff.Empty, "sha1234");
+		var first = SessionPlanner.Advance(TestData.BugHunter, Repo, ReviewSession.Initial, Diff.Empty, "sha1234");
+		var continued = SessionPlanner.Advance(
+			TestData.BugHunter, Repo, new ReviewSession("old1234", 1, "s", []), Diff.Empty, "sha1234");
 
-		Assert.Equal(ChatRole.User, req.Messages[0].Role);
-		Assert.Equal(ChatRole.System, req.Messages[^1].Role);
+		Assert.Equal([ChatRole.User, ChatRole.System], first.Messages.Select(m => m.Role));
+		// The continued turn's own state is a message of its own, between the two.
+		Assert.Equal([ChatRole.User, ChatRole.User, ChatRole.System], continued.Messages.Select(m => m.Role));
 	}
 
 	[Fact]
@@ -271,7 +274,7 @@ public class SessionTests
 	}
 
 	[Fact]
-	public void Two_personas_on_one_continued_turn_share_everything_before_their_own_review_state()
+	public void Two_personas_on_one_continued_turn_send_a_byte_identical_first_message()
 	{
 		// One push, so one delta and one set of notes. Two sessions that differ in every field a
 		// session carries, the turn number included: a persona that joined later, or failed a turn,
@@ -279,32 +282,29 @@ public class SessionTests
 		var a = new ReviewSession("old1234", 1, "summary A",
 			[new Finding(Severity.Major, "a.cs", 3, "finding A", "x")], Dropped: ["dropped A"]);
 		var b = new ReviewSession("old1234", 3, "summary B", [], Dropped: ["dropped B"]);
-		string UserFor(Persona p, ReviewSession prior) => Msg.User(SessionPlanner.Advance(
+		ReviewRequest For(Persona p, ReviewSession prior) => SessionPlanner.Advance(
 			p, Repo, prior, RenameDelta, "new5678",
 			omitted: [new OmittedFile("package-lock.json", "generated")],
 			comments: [new AuthorComment("alice", "the rename is deliberate")],
 			conventions: new RepoConventions("CLAUDE.md", "Functional core, imperative shell."),
-			own: OwnRemovals.Of(RenameDelta, RenameBaseline)));
+			own: OwnRemovals.Of(RenameDelta, RenameBaseline));
 
-		var userA = UserFor(TestData.BugHunter, a);
-		var userB = UserFor(TestData.Contrarian, b);
-		var at = 0;
-		while (at < userA.Length && at < userB.Length && userA[at] == userB[at])
-		{
-			at++;
-		}
+		var reqA = For(TestData.BugHunter, a);
+		var reqB = For(TestData.Contrarian, b);
 
-		var shared = userA[..at];
+		// The whole message, not a common prefix of it. The provider reuses whole messages, so one
+		// persona-specific character anywhere in the first message makes all of it a miss. That is
+		// how #61 shipped: its state sat at the END of this message and continued turns cached 0.0%.
+		Assert.Equal(reqA.Messages[0], reqB.Messages[0]);
 
-		// Every persona-independent block is inside the common prefix. Put the session back ahead
-		// of the delta and this prefix ends a few words into the header.
+		var shared = reqA.Messages[0].Content;
 		Assert.Contains(RenameDelta.Raw, shared);
 		Assert.Contains("EARLIER TURN", shared);
 		Assert.Contains("Functional core, imperative shell.", shared);
 		Assert.Contains("package-lock.json", shared);
 		Assert.Contains("the rename is deliberate", shared);
-		Assert.Contains("summary A", userA[at..]);
-		Assert.Contains("summary B", userB[at..]);
+		Assert.Contains(reqA.Messages.Skip(1), m => m.Content.Contains("summary A"));
+		Assert.Contains(reqB.Messages.Skip(1), m => m.Content.Contains("summary B"));
 	}
 
 	// The verify pass appends to the original conversation, so its prefix is the review call's

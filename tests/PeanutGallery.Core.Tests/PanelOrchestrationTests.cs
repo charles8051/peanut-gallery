@@ -306,6 +306,22 @@ public class PanelOrchestrationTests
 	}
 
 	[Fact]
+	public void On_a_continued_turn_the_brief_follows_the_review_state()
+	{
+		// Both are per-persona, so both sit after the shared message, each a message of its own.
+		var persona = Assert.Single(PanelComposition.ToPersonas([C("sql-injection")], Model, 0.2));
+		var req = SessionPlanner.Advance(persona, new RepoTarget("demo", "/repos/demo"),
+			new ReviewSession("old1234", 1, "s", []), Diff.Empty, "sha1234");
+
+		Assert.Equal(
+			[ChatRole.User, ChatRole.User, ChatRole.User, ChatRole.System],
+			req.Messages.Select(m => m.Role));
+		Assert.DoesNotContain("PANEL BRIEF", req.Messages[0].Content);
+		Assert.StartsWith("This is turn 2", req.Messages[1].Content);
+		Assert.StartsWith("PANEL BRIEF", req.Messages[2].Content);
+	}
+
+	[Fact]
 	public void A_persona_with_no_brief_gets_no_extra_message()
 	{
 		// Every configured persona, and every persona decoded from a panel pinned before Brief

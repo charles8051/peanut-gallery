@@ -101,23 +101,24 @@ boundary. A direct provider probe against `openai/gpt-5.6-luna` confirmed the or
 the cache: two personas over one shared block reported 0% under the old order and **99.8% on the
 second call** under the new one.
 
-**How far the invariant reaches.** The cache rests on a run's personas producing a byte-identical
-prefix. On first turns that prefix is the whole user block. The builders take no `Persona` at all,
-so the compiler enforces it (`PromptAssembly.BuildUserPrompt`, `SessionPlanner.BuildFirstUser`;
-asserted by `Two_personas_on_one_first_turn_produce_a_byte_identical_user_block` in both test
-classes). On continued turns it is everything except the persona's own session.
-`SessionPlanner.BuildContinuedDelta` takes no `ReviewSession`. `ContinuedState` carries the turn
-number, running summary, open findings, dropped titles and the update instruction, and it is
-appended after the conventions, omitted-files and conversation notes. The conversation note is
-shared only while the personas have seen the same comments, which is the usual case. Asserted by
-`Two_personas_on_one_continued_turn_share_everything_before_their_own_review_state`. Mutation-checked
-both ways: the test fails with the session moved back ahead of the delta, and with the turn number
-moved back into the header.
+**How far the invariant reaches.** The cache rests on a run's personas sending a byte-identical
+first message. It has to match as a whole message, not as a prefix (see the correction below). On
+first turns that message is the whole user block. The builders take no `Persona` at all, so the
+compiler enforces it (`PromptAssembly.BuildUserPrompt`, `SessionPlanner.BuildFirstUser`; asserted by
+`Two_personas_on_one_first_turn_produce_a_byte_identical_user_block` in both test classes). On
+continued turns the shared message is `SessionPlanner.BuildContinuedDelta` plus the conventions,
+omitted-files and conversation notes, and `BuildContinuedDelta` takes no `ReviewSession`.
+`ContinuedState` carries the turn number, running summary, open findings, dropped titles and the
+update instruction, as a user message of its own after the shared one. First turns send
+`[shared, brief?, system]` and continued turns `[shared, state, brief?, system]`. The conversation
+note is shared only while the personas have seen the same comments, which is the usual case.
+Asserted by `Two_personas_on_one_continued_turn_send_a_byte_identical_first_message`, which compares
+the whole first message. Mutation-checked: it fails with the state put back inside the first
+message. The character-prefix assertion it replaced passed on exactly that layout.
 
-**Continued turns, measured.** Until this change the session state led the continued-turn block,
-ahead of the delta, and the turn number sat in its first line. Personas' prefixes split within the
-first dozen tokens. The fix was deferred until the first-vs-continued mix could be measured. The mix
-comes from frame-flow's ledgers, 2026-08-31 to 2026-10-14: 1,252 runs over 358 PRs, read with
+**Continued turns, measured.** Before #61 the session state led the continued-turn block, ahead of
+the delta, and the turn number sat in its first line. The fix was deferred until the
+first-vs-continued mix could be measured. The mix comes from frame-flow's ledgers, 2026-08-31 to 2026-10-14: 1,252 runs over 358 PRs, read with
 `peanut-gallery metrics --slug charles8051/frame-flow --since 60 --state all --json`. A persona's
 first ledger row on a PR counts as its first turn and every later reviewed row as continued.
 
@@ -126,8 +127,10 @@ first ledger row on a PR counts as its first turn and every later reviewed row a
 | first turns | 1,124 | 25.6M | 59.3% |
 | continued turns | 2,375 | 8.7M | 0.1% |
 
-Reordering pays only where the shared part clears the provider's minimum cacheable prefix: 1,024
-tokens on OpenAI-family models, then 128-token steps. Continued-turn calls are small. Their median
+#61 estimated the gain on a prefix-cache model: a 1,024-token minimum, then 128-token steps. That
+model is wrong for this provider (see the correction below). The population it counted still
+applies, because the shared message has to reach about 1,024 tokens under either model. Continued-turn
+calls are small. Their median
 input is 1,899 tokens, p75 3,246 and p95 11,273. About 740 of those are the persona's own tail
 (system message plus any brief), read directly as `in − cin` on cached first turns. Two estimates of
 the shared part agree:
@@ -149,12 +152,41 @@ alone suggested 5M. The difference is the half of continued runs whose delta is 
 
 The change is a reorder inside one pure builder, so it was made. A repository with a conventions
 block gains more than frame-flow's figures show, because that block (up to 6,000 characters) now
-sits in the shared prefix on every continued turn and lifts a small delta over the floor.
+sits in the shared message on every continued turn and lifts a small delta over the floor.
 
-Two things are not verified here. No direct provider probe was run, unlike the first-turn reorder;
-the mechanism is the same prefix match. And the model now reads its own summary and findings after
-the delta rather than before it. The next ledger read after consuming repositories take a release
-answers both: `cache%` on continued turns for the first, `refute%` and `agree%` for the second.
+**Correction: the cache reuses whole messages.** #61 moved the state after the delta but appended
+it to the end of the shared user message. It shipped in v0.1.3, and frame-flow pinned v0.1.3 on
+2026-10-14 (frame-flow#738). From then to 2026-10-17, continued turns cached 0 of 566k input tokens
+across 136 calls, while first turns cached 61.7% of 2.2M. The rollout was right. Runs pulled the
+d57751c image, and on frame-flow PRs 764 and 795 every persona's session carried the same SHA, turn
+and last-seen comment, so the shared text was byte-identical across personas. The cache model was wrong.
+The provider behind `~openai/gpt-luna-latest` reuses its cache at whole-message boundaries, and never
+reuses the final message of the earlier request. With the state inside it, the shared message still
+differed per persona as a whole, so nothing matched.
+
+That rule is inferred from the ledger's counts. The provider does not document it. The evidence, from
+frame-flow's ledgers for 2026-08-31 to 2026-10-17:
+
+- Cached counts do not fall on 128-token steps. 2 of 702 nonzero review-path counts are multiples of
+  128, and 10 of 1,041 on the verify path. A cache that grows in 128-token steps reports only
+  multiples.
+- They fall on message boundaries. On first turns the seed persona sends `[user, system]`, and its
+  verify pass reused exactly the shared user message in 206 of 207 cases. That size is read as
+  another persona's review-path hit in the same run. Convened personas send `[user, brief, system]`,
+  and their verify passes reused the shared message plus 128 to 246 tokens, the size of a brief, in
+  379 of 379.
+- The system message is the last message of the review request. It was never part of a verify hit,
+  though the verify pass sends it again.
+- No nonzero count falls below 1,024 tokens. The smallest of 1,758 is 1,037, so a floor near 1,024
+  still fits.
+
+The state is now a user message of its own, after the shared one. The estimate above still holds in
+order of magnitude, because the shared message is the same text it counted.
+
+Two things remain unverified. Whether the split lands is answered by `cache%` on continued turns in
+the first ledger read after consumers take a release that carries it. The model now reads its own
+review state as a separate message after the delta; `refute%` and `agree%` show whether that moves
+its behaviour.
 
 **What the second read found: `MalformedResponse` (#158).** A week's ledgers across two production
 repositories showed a 1.7% degrade rate whose `Other` bucket was 28 of 32 the *same* failure — an

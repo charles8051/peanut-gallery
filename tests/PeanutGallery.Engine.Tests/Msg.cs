@@ -17,6 +17,11 @@ internal static class Msg
 	public static string User(ReviewRequest r) =>
 		r.Messages.First(m => m.Role == ChatRole.User).Content;
 
+	/// <summary>A continued turn's own review state: the user turn right after the shared one.
+	/// A first turn has none, so ask this of continued turns only.</summary>
+	public static string State(ReviewRequest r) =>
+		r.Messages.Where(m => m.Role == ChatRole.User).ElementAt(1).Content;
+
 	/// <summary>The most recently appended user turn (a verify or repair follow-up).</summary>
 	public static string LastUser(ReviewRequest r) =>
 		r.Messages.Last(m => m.Role == ChatRole.User).Content;
