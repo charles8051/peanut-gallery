@@ -87,26 +87,26 @@ runs:
   # own improvements. A deliberate trade, not a side effect to discover later.
   #
   # To rebuild from source instead, revert to 'Dockerfile'.
-  # Built from commit d57751c, step 2 of the sequence above. Provenance, from the
-  # metrics-report.yml procedure run on 2026-10-14:
-  #   `docker buildx imagetools inspect :main` -> Digest sha256:ade4e2d2...,
+  # Built from commit c465667, step 2 of the sequence above. Provenance, from the
+  # metrics-report.yml procedure run on 2026-10-17:
+  #   `docker buildx imagetools inspect :main` -> Digest sha256:e6ea8500...,
   #   MediaType application/vnd.oci.image.index.v1+json
-  #   package version 1387825989, created 2026-10-14T21:20:17Z
-  #   tags ["d57751cdc616001eb057494c7fc7b8986e220252", "main"]
+  #   package version 1402911897, created 2026-10-17T21:15:37Z
+  #   tags ["c4656672fef862aea835f95eddcdad82f2b706ea", "main"]
   # Both tags on one version is the check: it is simultaneously what :main resolves to
-  # and the build of d57751c, with no second candidate. That commit is "feat(sessions):
-  # continued turns share a cacheable prefix across personas (#61)", the tip of main,
-  # with Build Image and Build and Test both success on the push.
+  # and the build of c465667, with no second candidate. That commit is "fix(sessions): a
+  # continued turn's review state is a message of its own (#63)", the tip of main, with
+  # Build Image and Build and Test both success on the push.
   #
   # What this bump moves: one behaviour change. Between the previous pin's build
-  # (d952c33) and d57751c, `git log -- src action Dockerfile action.yml` names #61 (a
-  # continued turn's persona state moves after the shared delta, so personas share a
-  # cacheable prefix). #59 in that range is the previous pin bump.
+  # (d57751c) and c465667, `git log -- src action Dockerfile action.yml` names #63 (a
+  # continued turn's review state is its own user message, so the shared message is
+  # byte-identical across personas). #62 in that range is the previous pin bump.
   #
   # The digest is the INDEX digest (application/vnd.oci.image.index.v1+json), not either
   # per-platform manifest under it. That is what `docker buildx imagetools inspect
   # <tag>` reports as `Digest:`, and what the previous pin used.
-  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:ade4e2d220518eb896117869cd0c1b3a5780417902e81cf894793166b4b0dca8'
+  image: 'docker://ghcr.io/charles8051/peanut-gallery@sha256:e6ea85004621241f24e069319014a6b9b3a415df029e4d3020de9a3573574182'
   env:
     GITHUB_TOKEN: ${{ inputs.github-token }}
     OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
